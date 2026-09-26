@@ -61,3 +61,14 @@ playwright-report/
 
 # Third-party design reference images (inspiration only, not licensed for publishing)
 /hero-section/
+
+# Added for the GitHub release
+node_modules/
+.next/
+out/
+.env
+.env.*
+!.env.example
+*.local
+*.key
+service-account*.json
