@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// Security model (Phases 1-3)
+// - The website reads and writes Firestore ONLY through the server (Admin SDK bypasses
+//   these rules). These rules are the second line of defence for any client access.
+// - Public catalogue collections are readable when published. Nothing is writable by clients.
+// - Admin-only collections (bookings, settings, admins, auditLogs, rateLimits, ...) are closed
+//   to clients entirely: every admin read/write goes through `/admin` server actions, which
+//   verify the staff session cookie and role server-side (see `src/lib/auth/session.ts`) before
+//   ever touching Firestore. These rules deny direct client access regardless of that check,
+//   so a compromised or spoofed client-side auth token still can't read or write staff data.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function published() {
+      return resource.data.status == 'published';
+    }
+
+    match /serviceCategories/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    match /services/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    // Phase 2: knowledge-base content. Same rule shape as services/categories.
+    match /guides/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    match /faultCodes/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    match /videos/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    // Knowledge-platform content taxonomy (vehicle groups and topics).
+    match /categories/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    // Phase 3: workshop photos and customer reviews. Same public-read-when-published
+    // shape; every write (upload, caption edit, delete) happens via the Admin SDK only.
+    match /galleryImages/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    match /reviews/{id} {
+      allow read: if published();
+      allow write: if false;
+    }
+
+    // Phase 3: bookings now carry a staff-only pipeline (status, internal notes) on top of
+    // the customer-submitted fields from Phase 1. Still no client read or write of any kind —
+    // creation goes through the booking API route, everything else through `/admin`.
+    match /bookings/{id} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: audit log of sensitive admin actions. Written by the Admin SDK only, read only
+    // via `/admin` (which itself never exposes it to the browser as a raw Firestore query).
+    match /auditLogs/{id} {
+      allow read, write: if false;
+    }
+
+    // Default deny for every other path, including future collections.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

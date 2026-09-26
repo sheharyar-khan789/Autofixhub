@@ -1,0 +1,20 @@
+{
+  "tradingName": "Test Workshop (fixture)",
+  "legalName": "Test Workshop Ltd (fixture)",
+  "phone": "01632 960123",
+  "whatsapp": "+447700900123",
+  "email": "hello@example.com",
+  "address": { "line1": "1 Fixture Road", "city": "Testville", "postcode": "AB1 2CD" },
+  "openingHours": [
+    { "day": "mon", "open": "09:00", "close": "17:00" },
+    { "day": "tue", "open": "09:00", "close": "17:00" },
+    { "day": "wed", "open": "09:00", "close": "17:00" },
+    { "day": "thu", "open": "09:00", "close": "17:00" },
+    { "day": "fri", "open": "09:00", "close": "17:00" },
+    { "day": "sat", "closed": true },
+    { "day": "sun", "closed": true }
+  ],
+  "accreditations": [],
+  "whyChooseUs": [],
+  "about": {}
+}

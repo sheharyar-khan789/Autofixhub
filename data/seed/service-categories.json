@@ -1,0 +1,56 @@
+[
+ {
+  "id": "volkswagen-diesel",
+  "name": "Volkswagen Group Diesel",
+  "slug": "volkswagen-diesel",
+  "description": "Diagnosis and repair work on Volkswagen Group diesel vehicles.",
+  "iconKey": "fuel",
+  "order": 10,
+  "status": "published"
+ },
+ {
+  "id": "toyota-hybrid",
+  "name": "Toyota Hybrid",
+  "slug": "toyota-hybrid",
+  "description": "Toyota Prius Hybrid and Toyota Corolla Hybrid.",
+  "iconKey": "plug-zap",
+  "order": 20,
+  "status": "published"
+ },
+ {
+  "id": "clutch-gearbox",
+  "name": "Gearbox & Clutch",
+  "slug": "clutch-gearbox",
+  "description": "Gearbox faults and clutch problems.",
+  "iconKey": "settings-2",
+  "order": 30,
+  "status": "published"
+ },
+ {
+  "id": "diesel-systems",
+  "name": "DPF, Turbo & Injectors",
+  "slug": "diesel-systems",
+  "description": "Diesel particulate filter, turbocharger and injector faults.",
+  "iconKey": "wind",
+  "order": 40,
+  "status": "published"
+ },
+ {
+  "id": "engine-repairs",
+  "name": "Timing Belt & Oil Leaks",
+  "slug": "engine-repairs",
+  "description": "Timing belt work and tracing and fixing oil leaks.",
+  "iconKey": "cog",
+  "order": 50,
+  "status": "published"
+ },
+ {
+  "id": "electrical-diagnostics",
+  "name": "Wiring & Electrical Diagnostics",
+  "slug": "electrical-diagnostics",
+  "description": "Wiring faults, loom wiring and electrical diagnostic work.",
+  "iconKey": "zap",
+  "order": 60,
+  "status": "published"
+ }
+]

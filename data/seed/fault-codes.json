@@ -1,0 +1,107 @@
+[
+ {
+  "id": "p0420",
+  "code": "P0420",
+  "title": "Catalyst System Efficiency Below Threshold (Bank 1)",
+  "meaning": "This is a generic OBD-II code. It means the engine control module compared the readings from the oxygen sensors before and after the bank 1 catalytic converter and found the difference smaller than expected, suggesting the converter is no longer reducing exhaust emissions as efficiently as it should. It does not by itself confirm the catalytic converter is faulty: the same code can be triggered by an unrelated fault upstream that changes the exhaust gas the converter receives.",
+  "scope": "generic",
+  "symptoms": [
+   "Check engine / MIL warning light illuminated",
+   "Possible MOT emissions failure",
+   "Occasionally a mild sulphur or 'rotten egg' smell from the exhaust",
+   "No noticeable drivability change in many cases"
+  ],
+  "possibleCauses": [
+   "Ageing or contaminated catalytic converter",
+   "Failing or degraded oxygen/lambda sensor (upstream or downstream)",
+   "Exhaust leak before or around the sensors",
+   "Engine misfire or an overly rich/lean fuel mixture damaging the converter over time",
+   "Oil or coolant consumption contaminating the converter"
+  ],
+  "diagnosticSteps": [
+   "Retrieve full fault code list and freeze-frame data, not just this code, since a misfire or fuel-trim code often explains it",
+   "Visually inspect the exhaust for leaks or damage ahead of the converter",
+   "Check upstream and downstream oxygen sensor readings and response with a scan tool",
+   "Confirm no misfire codes or abnormal fuel trims are present before condemning the converter",
+   "Road test after any repair and clear codes to confirm the readiness monitor passes"
+  ],
+  "relatedVehicles": [],
+  "relatedGuideSlugs": [],
+  "relatedVideoIds": [],
+  "status": "draft",
+  "system": "Exhaust / emissions",
+  "categorySlugs": [
+   "diagnostics"
+  ]
+ },
+ {
+  "id": "p0300",
+  "code": "P0300",
+  "title": "Random/Multiple Cylinder Misfire Detected",
+  "meaning": "This is a generic OBD-II code. It means the engine control module has detected misfires across multiple cylinders, or misfires that move between cylinders, rather than one consistent cylinder. A flashing check engine light alongside this code can indicate a misfire severe enough to damage the catalytic converter and usually calls for the vehicle to be driven gently or not at all until checked.",
+  "scope": "generic",
+  "symptoms": [
+   "Rough idle or a noticeable engine shake",
+   "Hesitation or lack of power under acceleration",
+   "Check engine light on, or flashing if the misfire is severe",
+   "Increased fuel consumption"
+  ],
+  "possibleCauses": [
+   "Worn or fouled spark plugs, or failing ignition coils (common on petrol engines)",
+   "Vacuum or intake air leak affecting more than one cylinder",
+   "Low fuel pressure or a clogged fuel filter/injector",
+   "Low compression across cylinders, sometimes from a head gasket fault",
+   "Contaminated or incorrect fuel"
+  ],
+  "diagnosticSteps": [
+   "Check for cylinder-specific misfire codes (P0301-P0312 etc.) alongside P0300 to narrow it down",
+   "Inspect spark plugs, ignition coils and leads where accessible",
+   "Check for vacuum leaks and inspect intake components",
+   "Check fuel pressure and fuel trims",
+   "Perform a compression or leak-down test if the above checks are inconclusive"
+  ],
+  "relatedVehicles": [],
+  "relatedGuideSlugs": [],
+  "relatedVideoIds": [],
+  "status": "draft",
+  "system": "Engine / ignition (misfire)",
+  "categorySlugs": [
+   "diagnostics"
+  ]
+ },
+ {
+  "id": "p0401",
+  "code": "P0401",
+  "title": "Exhaust Gas Recirculation (EGR) Flow Insufficient Detected",
+  "meaning": "This is a generic OBD-II code. It means the engine control module expected a certain amount of exhaust gas to be recirculated back into the intake through the EGR system and did not detect enough flow. EGR systems and how they are monitored vary a lot between manufacturers, so the exact trigger conditions and the most likely cause differ by vehicle.",
+  "scope": "generic",
+  "symptoms": [
+   "Check engine light on",
+   "Possible rough or unstable idle",
+   "Increased NOx emissions, which can affect an MOT emissions result",
+   "Slight pinking/knocking under load on some engines"
+  ],
+  "possibleCauses": [
+   "EGR valve stuck closed or clogged with carbon deposits",
+   "Blocked EGR passages or cooler (common on diesel engines)",
+   "Faulty EGR position or flow sensor",
+   "Wiring or vacuum-line fault to the EGR valve",
+   "Blocked EGR-related filters on some diesel systems"
+  ],
+  "diagnosticSteps": [
+   "Confirm the code with a scan tool and check EGR-related live data if available",
+   "Inspect the EGR valve and passages for carbon build-up",
+   "Test the EGR valve's electrical or vacuum operation as specified for the system fitted",
+   "Check for related vacuum leaks or wiring faults",
+   "Clear codes and road test to confirm the fault does not return once the cause is addressed"
+  ],
+  "relatedVehicles": [],
+  "relatedGuideSlugs": [],
+  "relatedVideoIds": [],
+  "status": "draft",
+  "system": "Exhaust gas recirculation (EGR)",
+  "categorySlugs": [
+   "diagnostics"
+  ]
+ }
+]

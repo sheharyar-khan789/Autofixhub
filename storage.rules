@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// Booking photos are uploaded by the server (Admin SDK) to booking-uploads/{bookingId}/.
+// Phase 3 gallery photos are uploaded by the server (Admin SDK, via `/admin/gallery`) to
+// gallery/{businessId}/{imageId}.{ext} and made public on the object itself
+// (`file.makePublic()`) so the published photo can be shown on the public site; that public
+// URL is served by Cloud Storage directly and does not go through these rules or the Firebase
+// client SDK at all. No client, signed-in or not, can read, list, write or delete anything
+// through the Firebase Storage client SDK.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

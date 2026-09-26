@@ -1,0 +1,6 @@
+{
+  "tradingName": "AutoFixHub",
+  "email": "muhammadibrahimx53@gmail.com",
+  "socialLinks": { "youtube": "https://www.youtube.com/@muhammadibrahim-vw" },
+  "_readme": "Owner-confirmed facts only (2026-09-26). Copy to data/settings.local.json (git-ignored) before seeding. Add phone, whatsapp, address, mapsUrl, openingHours, legalName, companyNumber, accreditations ONLY once the owner has confirmed them: none are confirmed yet, so none are listed. The site already shows these confirmed facts without seeding (src/lib/business.ts)."
+}

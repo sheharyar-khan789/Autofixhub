@@ -1,0 +1,72 @@
+{
+  "_readme": "FICTIONAL test/development content. Loaded only by the in-memory store (DATA_SOURCE=memory), which is refused in production. Never seeded to Firestore, never real AutoFixHub content.",
+  "guides": [
+    {
+      "id": "fixture-guide-dpf",
+      "slug": "fixture-diesel-dpf-warning-light",
+      "title": "Fixture guide: diesel DPF warning light",
+      "excerpt": "Fictional fixture guide used by automated tests for the guide page layout.",
+      "content": "Fixture paragraph one for automated tests.\n\nFixture paragraph two for automated tests.",
+      "vehicleMake": "Volkswagen",
+      "vehicleModel": "Fixture Model",
+      "vehicleYearFrom": 2015,
+      "vehicleYearTo": 2019,
+      "engine": "2.0 TDI (fixture)",
+      "fuelType": "diesel",
+      "problemCategory": "DPF",
+      "symptoms": ["Fixture symptom A", "Fixture symptom B"],
+      "possibleCauses": ["Fixture cause A"],
+      "diagnosis": "Fixture diagnostic text.",
+      "warnings": ["Fixture warning note."],
+      "relatedFaultCodes": ["P0401"],
+      "relatedGuideSlugs": ["fixture-hybrid-warning-message"],
+      "categorySlugs": ["volkswagen-group", "diesel", "dpf"],
+      "youtubeVideoId": "fixtureVid1",
+      "faqs": [{ "question": "Fixture question?", "answer": "Fixture answer." }],
+      "author": "Fixture Author",
+      "publishedAt": "2026-01-10T09:00:00.000Z",
+      "updatedAt": "2026-02-01T09:00:00.000Z",
+      "status": "published"
+    },
+    {
+      "id": "fixture-guide-hybrid",
+      "slug": "fixture-hybrid-warning-message",
+      "title": "Fixture guide: hybrid warning message",
+      "excerpt": "Second fictional fixture guide, used to test related guides and categories.",
+      "content": "Fixture hybrid guide text for automated tests.",
+      "vehicleMake": "Toyota",
+      "vehicleModel": "Fixture Hybrid",
+      "fuelType": "hybrid",
+      "problemCategory": "Hybrid system",
+      "categorySlugs": ["toyota", "hybrid", "diagnostics"],
+      "publishedAt": "2026-01-05T09:00:00.000Z",
+      "status": "published"
+    },
+    {
+      "id": "fixture-guide-draft",
+      "slug": "fixture-draft-guide",
+      "title": "Fixture DRAFT guide that must never be public",
+      "excerpt": "Draft fixture used to prove drafts are not publicly visible.",
+      "content": "Draft fixture text.",
+      "categorySlugs": ["turbo"],
+      "status": "draft"
+    }
+  ],
+  "videos": [
+    {
+      "id": "fixture-video-dpf",
+      "slug": "fixture-dpf-video",
+      "title": "Fixture video: DPF diagnosis",
+      "youtubeUrl": "https://www.youtube.com/watch?v=fixtureVid1",
+      "youtubeVideoId": "fixtureVid1",
+      "thumbnail": "/animation/corolla/frame-001.jpg",
+      "description": "Fictional fixture video record for automated tests.",
+      "vehicleMake": "Volkswagen",
+      "relatedGuideSlug": "fixture-diesel-dpf-warning-light",
+      "relatedFaultCodes": ["P0401"],
+      "categorySlugs": ["dpf", "diesel"],
+      "publishedAt": "2026-01-12T09:00:00.000Z",
+      "status": "published"
+    }
+  ]
+}

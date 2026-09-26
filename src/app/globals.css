@@ -1,0 +1,365 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens ported from the Stitch "Apex Engineering" design system
+ * (docs/design/DESIGN.md). Do not add ad-hoc colours: extend tokens here.
+ */
+@theme {
+  --color-background: #121416;
+  --color-surface: #121416;
+  --color-surface-base: #111315;
+  --color-surface-raised: #17191b;
+  --color-surface-card: #202326;
+  --color-surface-elevated: #282b2e;
+  --color-surface-container-lowest: #0c0e10;
+  --color-surface-container-low: #1a1c1e;
+  --color-surface-container: #1e2022;
+  --color-surface-container-high: #282a2c;
+  --color-surface-container-highest: #333537;
+  --color-border-subtle: #2b2f33;
+  --color-border-medium: #383d42;
+  --color-text-primary: #f5f5f2;
+  --color-text-muted: #a8adb1;
+  --color-primary: #ffb4ab;
+  --color-primary-container: #d71920;
+  --color-accent-red-hover: #e21b23;
+  --color-status-fault-red: #d71920;
+  --color-status-amber-warning: #f59e0b;
+  --color-status-pass-green: #10b981;
+  --color-plate-yellow: #fdcb00;
+  --color-on-primary-container: #ffece9;
+  --color-outline-variant: #5d3f3c;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-headline: var(--font-chivo), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-code: var(--font-space-grotesk), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-headline-xl: 3rem;
+  --text-headline-xl--line-height: 3.375rem;
+  --text-headline-xl--font-weight: 800;
+  --text-headline-xl--letter-spacing: -0.02em;
+  --text-headline-xl-mobile: 2rem;
+  --text-headline-xl-mobile--line-height: 2.375rem;
+  --text-headline-xl-mobile--font-weight: 800;
+  --text-headline-xl-mobile--letter-spacing: -0.02em;
+  --text-headline-lg: 2.25rem;
+  --text-headline-lg--line-height: 2.625rem;
+  --text-headline-lg--font-weight: 700;
+  --text-headline-lg--letter-spacing: -0.02em;
+  --text-headline-lg-mobile: 1.625rem;
+  --text-headline-lg-mobile--line-height: 2rem;
+  --text-headline-lg-mobile--font-weight: 700;
+  --text-headline-md: 1.5rem;
+  --text-headline-md--line-height: 1.875rem;
+  --text-headline-md--font-weight: 700;
+  --text-headline-sm: 1.25rem;
+  --text-headline-sm--line-height: 1.625rem;
+  --text-headline-sm--font-weight: 600;
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.75rem;
+  --text-body-md: 0.9375rem;
+  --text-body-md--line-height: 1.5rem;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.125rem;
+  --text-label-code: 0.875rem;
+  --text-label-code--line-height: 1.125rem;
+  --text-label-code--font-weight: 600;
+  --text-label-telemetry: 0.75rem;
+  --text-label-telemetry--line-height: 1rem;
+  --text-label-telemetry--font-weight: 500;
+  --text-label-badge: 0.6875rem;
+  --text-label-badge--line-height: 0.875rem;
+  --text-label-badge--font-weight: 700;
+
+  --radius-sm: 0.125rem;
+  --radius: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --spacing-gutter: 1.5rem;
+  --spacing-margin: 2.5rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2.5rem;
+}
+
+/* Mobile gutter per DESIGN.md (1rem) */
+@media (max-width: 767px) {
+  :root {
+    --spacing-gutter: 1rem;
+    --spacing-margin: 1rem;
+  }
+}
+
+:root {
+  --header-h: 5rem;
+  --dock-h: 4rem;
+}
+/* The 36px utility bar (hours/address/phone) only renders when that information is set. */
+@media (min-width: 1024px) {
+  :root:has([data-utility-bar]) {
+    --header-h: 7.25rem; /* 36px utility bar + 80px main bar */
+  }
+}
+
+html {
+  background: var(--color-surface-base);
+  color-scheme: dark;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
+}
+
+body {
+  /* Faint warm light from the top edge: depth without competing with content. */
+  background:
+    radial-gradient(1100px 520px at 70% -8%, rgb(150 168 178 / 0.045), transparent 62%),
+    var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-primary-container);
+  color: var(--color-text-primary);
+}
+
+/* Visible keyboard focus everywhere (DESIGN.md: red = active/focus) */
+:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-scroll {
+    height: auto !important;
+  }
+  .hero-sticky {
+    position: relative !important;
+    height: auto !important;
+    min-height: calc(100dvh - var(--header-h));
+  }
+  /* Without the pinned height the scene needs an explicit height of its own. */
+  .hero-frame,
+  .hero-overlay {
+    min-height: max(calc(100dvh - var(--header-h)), 560px);
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Admin tables: on narrow screens each row becomes a labelled card (no squeezed columns). */
+@media (max-width: 767px) {
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .admin-table,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+  .admin-table tr {
+    padding: 0.75rem 0.25rem;
+  }
+  .admin-table td {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  .admin-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--font-code);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Hero scene, composed after the three references in /hero-section (principles
+   only): a deep graphite room, smoky backlight behind the body, a large brand word
+   behind the car, the car standing in a spotlight pool, and a vignette.
+   Layers sit around the drawn vehicle via --car-cx/--car-top/--car-w/--car-h
+   (written by CarScrollHero on resize) and respond to --hero-fp (separation).
+   Decorative only; transform/opacity animation.
+   --------------------------------------------------------------------------- */
+.hero-sticky {
+  --car-cx: 50%;
+  --car-top: 20%;
+  --car-w: 40vw;
+  --car-h: 70vh;
+}
+/* Room: near-black above, lifting slightly towards the floor. */
+.hero-env {
+  background:
+    radial-gradient(130% 70% at 50% 100%, #121619 0%, transparent 62%),
+    linear-gradient(to bottom, #060809 0%, #0a0c0f 50%, #0d1013 100%);
+}
+/* Smoky backlight behind the body (separates the silhouette from the room), with a
+   faint warm tint low down; brightens a little as the parts separate. */
+.hero-backlight {
+  background:
+    radial-gradient(calc(var(--car-w) * 1.1) calc(var(--car-h) * 0.55) at var(--car-cx) calc(var(--car-top) + var(--car-h) * 0.5),
+      rgb(62 70 76 / 0.75), rgb(38 44 49 / 0.55) 38%, rgb(20 24 27 / 0.3) 64%, transparent 86%),
+    radial-gradient(calc(var(--car-w) * 2) calc(var(--car-h) * 0.8) at var(--car-cx) calc(var(--car-top) + var(--car-h) * 0.42),
+      rgb(140 150 156 / 0.08), transparent 70%),
+    radial-gradient(calc(var(--car-w) * 1.4) calc(var(--car-h) * 0.3) at var(--car-cx) calc(var(--car-top) + var(--car-h) * 0.82),
+      rgb(150 70 45 / 0.08), transparent 72%);
+  opacity: calc(0.85 + var(--hero-fp, 0) * 0.15);
+}
+/* Brand word behind the car: letters sit across the roofline, their lower part passes
+   behind the body (masked inside the car's width), full height either side of it. */
+.hero-wordmark {
+  /* Roofline at ~62% of the letter height (--wm-ratio = height / width of the word). */
+  top: max(var(--text-bottom, 0px), calc(var(--car-top) + var(--car-h) * 0.42 - (100vw - 2 * var(--spacing-gutter)) * var(--wm-ratio) * 0.62));
+  -webkit-mask-image:
+    linear-gradient(to right, #000 calc(var(--car-cx) - var(--car-w) * 0.5), transparent calc(var(--car-cx) - var(--car-w) * 0.3),
+      transparent calc(var(--car-cx) + var(--car-w) * 0.3), #000 calc(var(--car-cx) + var(--car-w) * 0.5)),
+    linear-gradient(to bottom, #000 45%, transparent 85%);
+  -webkit-mask-composite: source-over;
+  mask-image:
+    linear-gradient(to right, #000 calc(var(--car-cx) - var(--car-w) * 0.5), transparent calc(var(--car-cx) - var(--car-w) * 0.3),
+      transparent calc(var(--car-cx) + var(--car-w) * 0.3), #000 calc(var(--car-cx) + var(--car-w) * 0.5)),
+    linear-gradient(to bottom, #000 45%, transparent 85%);
+  mask-composite: add;
+  opacity: calc(1 - var(--hero-fp, 0) * 0.45);
+}
+.hero-wordmark-text {
+  font-family: var(--font-headline);
+  font-size: 92px;
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  fill: rgb(214 220 224 / 0.16);
+}
+/* Spotlight pool on the floor around the wheels; widens as the parts separate. */
+.hero-pool {
+  left: calc(var(--car-cx) - var(--car-w) * 0.95);
+  width: calc(var(--car-w) * 1.9);
+  top: calc(var(--car-top) + var(--car-h) * 0.76);
+  height: calc(var(--car-h) * 0.32);
+  background: radial-gradient(closest-side, rgb(112 122 128 / 0.6), rgb(66 74 79 / 0.36) 50%, transparent);
+  transform: scaleX(calc(0.94 + var(--hero-fp, 0) * 0.14));
+}
+/* The small line under the car is centred on the car, not the page. */
+.hero-caption-centred {
+  left: var(--car-cx);
+  translate: -50% 0;
+}
+/* Vignette (keeps the text corners calm) and the fall-off into the next section. */
+.hero-haze {
+  background:
+    radial-gradient(120% 95% at var(--car-cx) 58%, transparent 48%, rgb(3 4 5 / 0.72) 100%),
+    linear-gradient(to bottom, transparent 82%, var(--color-surface-base));
+}
+/* The vehicle layer: lighten onto the scene, plus a subtle push-in while exploding
+   (ends at 1, so labels never grow past the layout box). */
+.hero-depth {
+  mix-blend-mode: lighten;
+  transform: scale(calc(0.955 + var(--hero-fp, 0) * 0.045));
+  transform-origin: 50% 60%;
+  will-change: transform;
+}
+/*
+ * While the parts separate and hold, the copy steps aside so the exploded view and its
+ * labels own the stage; it returns for the reassembly. Keyboard focus inside the copy
+ * brings it straight back.
+ */
+.hero-copy,
+.hero-caption {
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+.hero-scroll[data-phase="2"] .hero-copy,
+.hero-scroll[data-phase="3"] .hero-copy,
+.hero-scroll[data-phase="2"] .hero-caption,
+.hero-scroll[data-phase="3"] .hero-caption {
+  opacity: 0;
+  transform: translate3d(0, -10px, 0);
+  pointer-events: none;
+}
+.hero-scroll .hero-copy:focus-within {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* Editorial section rhythm: hairline rule + (raised sections) a faint engineering dot grid. */
+.section-rule {
+  position: relative;
+}
+.section-rule::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgb(245 245 242 / 0.09) 20%, rgb(245 245 242 / 0.09) 80%, transparent);
+}
+/* Raised (graphite) sections: faint dot grid, easing in from the page surface above. */
+.section-texture {
+  background-image:
+    radial-gradient(rgb(245 245 242 / 0.06) 1px, transparent 1.2px),
+    linear-gradient(to bottom, var(--color-surface-base), transparent 180px);
+  background-size: 22px 22px, 100% 100%;
+  background-position: center top, 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-depth,
+  .hero-pool {
+    transform: none !important;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sheet-in {
+  from { transform: translate3d(100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+/* Diagnostics sections: near-black with a fine engineering grid, faded at the edges. */
+.section-technical {
+  background-color: var(--color-surface-container-lowest);
+  background-image:
+    linear-gradient(to right, rgb(200 214 222 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(200 214 222 / 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: center top;
+}
+.section-technical::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 45%, var(--color-surface-container-lowest) 95%);
+}
+/* Video and closing sections: deep surface with soft studio light from above. */
+.section-cinematic {
+  background:
+    radial-gradient(900px 420px at 50% 0%, rgb(150 168 178 / 0.07), transparent 70%),
+    linear-gradient(to bottom, #0d1114, #090b0d);
+}
+/* Editorial card affordance: gentle lift on hover (pointer devices, motion allowed). */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card-lift {
+    transition: transform 250ms ease, border-color 250ms ease, background-color 250ms ease;
+  }
+  .card-lift:hover {
+    transform: translate3d(0, -2px, 0);
+  }
+}

@@ -1,0 +1,119 @@
+[
+ {
+  "id": "volkswagen-group",
+  "name": "Volkswagen Group",
+  "slug": "volkswagen-group",
+  "kind": "vehicle",
+  "description": "Volkswagen Group vehicles, with a focus on diesel models.",
+  "order": 10,
+  "status": "published"
+ },
+ {
+  "id": "toyota",
+  "name": "Toyota",
+  "slug": "toyota",
+  "kind": "vehicle",
+  "description": "Toyota vehicles, including the Prius Hybrid and Corolla Hybrid.",
+  "order": 20,
+  "status": "published"
+ },
+ {
+  "id": "diesel",
+  "name": "Diesel",
+  "slug": "diesel",
+  "kind": "topic",
+  "description": "Diesel engine problems and diagnostics.",
+  "order": 30,
+  "status": "published"
+ },
+ {
+  "id": "hybrid",
+  "name": "Hybrid",
+  "slug": "hybrid",
+  "kind": "topic",
+  "description": "Hybrid system warnings, faults and diagnostics.",
+  "order": 40,
+  "status": "published"
+ },
+ {
+  "id": "dpf",
+  "name": "DPF",
+  "slug": "dpf",
+  "kind": "topic",
+  "description": "Diesel particulate filter warnings, blockages and related sensor faults.",
+  "order": 50,
+  "status": "published"
+ },
+ {
+  "id": "turbo",
+  "name": "Turbo",
+  "slug": "turbo",
+  "kind": "topic",
+  "description": "Turbocharger symptoms, boost problems and related faults.",
+  "order": 60,
+  "status": "published"
+ },
+ {
+  "id": "injectors",
+  "name": "Injectors",
+  "slug": "injectors",
+  "kind": "topic",
+  "description": "Fuel injector faults and symptoms.",
+  "order": 70,
+  "status": "published"
+ },
+ {
+  "id": "gearbox",
+  "name": "Gearbox",
+  "slug": "gearbox",
+  "kind": "topic",
+  "description": "Gearbox symptoms and faults.",
+  "order": 80,
+  "status": "published"
+ },
+ {
+  "id": "clutch",
+  "name": "Clutch",
+  "slug": "clutch",
+  "kind": "topic",
+  "description": "Clutch symptoms and problems.",
+  "order": 90,
+  "status": "published"
+ },
+ {
+  "id": "timing-belt",
+  "name": "Timing belt",
+  "slug": "timing-belt",
+  "kind": "topic",
+  "description": "Timing belt intervals, symptoms and related information.",
+  "order": 100,
+  "status": "published"
+ },
+ {
+  "id": "oil-leaks",
+  "name": "Oil leaks",
+  "slug": "oil-leaks",
+  "kind": "topic",
+  "description": "Finding where oil leaks come from.",
+  "order": 110,
+  "status": "published"
+ },
+ {
+  "id": "wiring",
+  "name": "Wiring & loom",
+  "slug": "wiring",
+  "kind": "topic",
+  "description": "Wiring faults, loom damage and intermittent electrical problems.",
+  "order": 120,
+  "status": "published"
+ },
+ {
+  "id": "diagnostics",
+  "name": "Diagnostics",
+  "slug": "diagnostics",
+  "kind": "topic",
+  "description": "Warning lights, fault codes and diagnostic approach.",
+  "order": 130,
+  "status": "published"
+ }
+]
