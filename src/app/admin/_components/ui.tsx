@@ -23,7 +23,6 @@ const btn =
   "inline-flex min-h-10 items-center justify-center gap-space-xs rounded-md px-space-md py-space-sm text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 export const primaryBtn = `${btn} bg-primary-container text-text-primary hover:bg-accent-red-hover`;
 export const secondaryBtn = `${btn} border border-border-medium bg-surface-card text-text-primary hover:border-text-muted`;
-export const ghostBtn = `${btn} text-text-muted hover:bg-surface-card hover:text-text-primary`;
 export const dangerBtn = `${btn} border border-status-fault-red/60 text-status-fault-red hover:bg-status-fault-red/10`;
 /** Compact text-style action used inside table rows. */
 export const rowActionClass =

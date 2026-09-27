@@ -227,7 +227,6 @@ favicon and social image.
 - Automated data-retention clean-up.
 - Admin list pagination (fine at small-business volume).
 - Slimming the booking page's Zod bundle (~392 KB uncompressed).
-- Removing unused starter SVGs in `public/` (`file.svg`, `globe.svg`, `next.svg`, `vercel.svg`, `window.svg`; not referenced anywhere).
 - More guides, videos and fault codes.
 - Analytics.
 
