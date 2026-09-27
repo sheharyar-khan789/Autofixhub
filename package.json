@@ -13,7 +13,7 @@
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-workshop \"vitest run --config vitest.rules.config.mts\"",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "admin:grant": "tsx --env-file=.env.local scripts/set-admin-claim.ts",
-    "test:admin-flow": "firebase emulators:exec --only auth,firestore --project demo-autofixhub \"playwright test --config playwright.emulator.config.ts\""
+    "test:admin-flow": "firebase emulators:exec --only auth,firestore,storage --project demo-autofixhub \"playwright test --config playwright.emulator.config.ts\""
   },
   "dependencies": {
     "firebase": "^12.19.0",

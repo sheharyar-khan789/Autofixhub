@@ -100,5 +100,8 @@ export async function deleteCategoryAction(_prev: DeleteActionState, formData: F
     return { error: adminErrorMessage(err, "Could not delete the category.") };
   }
   revalidateCategories();
+  // From an edit page, go back to the list: the deleted record's page no longer exists.
+  const back = formData.get("redirectTo");
+  if (back) redirect(withNotice(safeAdminNext(back), "deleted"));
   return { success: "Category deleted." };
 }

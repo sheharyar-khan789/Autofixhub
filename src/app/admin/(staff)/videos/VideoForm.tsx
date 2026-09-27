@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ContentCategory, Video } from "@/lib/models";
+import type { ContentCategory, Video, VideoType } from "@/lib/models";
 import { extractYoutubeId } from "@/lib/admin/youtube";
 import { saveVideoAction, type ActionState } from "./actions";
 import { FieldError, fieldProps, FormMessage, inputClass, labelClass, Req } from "../../_components/ui";
@@ -9,6 +9,7 @@ import { useAdminForm } from "../../_components/useAdminForm";
 import { EditorActions } from "../../_components/EditorActions";
 import { CategoryPicker } from "../../_components/CategoryPicker";
 import { CopyUrlButton } from "../../_components/CopyUrlButton";
+import { ThumbnailField } from "./ThumbnailField";
 
 const initialState: ActionState = {};
 const csv = (v?: string[]) => (v ?? []).join(", ");
@@ -26,6 +27,7 @@ export function VideoForm({
   const action = saveVideoAction.bind(null, video?.id ?? null);
   const { state, pending, formProps } = useAdminForm(action, initialState);
   const [urlInput, setUrlInput] = useState(video?.youtubeUrl ?? "");
+  const [videoType, setVideoType] = useState<VideoType>(video?.videoType ?? "standard");
   const previewId = extractYoutubeId(urlInput);
 
   return (
@@ -36,7 +38,10 @@ export function VideoForm({
           {...fieldProps(state.fieldErrors, "youtubeUrl")}
           defaultValue={video?.youtubeUrl}
           required
-          onChange={(e) => setUrlInput(e.target.value)}
+          onChange={(e) => {
+            setUrlInput(e.target.value);
+            if (/\/shorts\//i.test(e.target.value)) setVideoType("short");
+          }}
           className={inputClass}
         />
         <FieldError errors={state.fieldErrors} name="youtubeUrl" />
@@ -67,11 +72,27 @@ export function VideoForm({
         <FieldError errors={state.fieldErrors} name="description" />
       </label>
 
-      <label className={labelClass}>
-        Thumbnail override URL (optional — defaults to the YouTube thumbnail)
-        <input {...fieldProps(state.fieldErrors, "thumbnail")} type="url" defaultValue={video?.thumbnail} className={inputClass} />
-        <FieldError errors={state.fieldErrors} name="thumbnail" />
+      <label className={`${labelClass} sm:max-w-xs`}>
+        Video type
+        <select
+          {...fieldProps(state.fieldErrors, "videoType")}
+          value={videoType}
+          onChange={(e) => setVideoType(e.target.value as VideoType)}
+          className={inputClass}
+        >
+          <option value="standard">Standard video (16:9)</option>
+          <option value="short">YouTube Short (9:16)</option>
+        </select>
+        <FieldError errors={state.fieldErrors} name="videoType" />
       </label>
+
+      <ThumbnailField
+        current={video?.thumbnail}
+        youtubeVideoId={previewId ?? undefined}
+        videoType={videoType}
+        serverError={state.fieldErrors?.thumbnailFile}
+        formState={state}
+      />
 
       <div className="grid gap-space-md sm:grid-cols-3">
         <label className={labelClass}>

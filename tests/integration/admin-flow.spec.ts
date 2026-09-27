@@ -2,9 +2,11 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import { crc32, deflateSync } from "node:zlib";
 
 /**
- * End-to-end admin workflow against the Firebase EMULATORS (Auth + Firestore):
+ * End-to-end admin workflow against the Firebase EMULATORS (Auth + Firestore + Storage):
  * the real login form, session lifecycle, authorisation, and CRUD for guides,
  * videos, fault codes and categories. Run with: npm run test:admin-flow
  */
@@ -15,6 +17,58 @@ const PASSWORD = "emulator-password";
 const app = getApps()[0] ?? initializeApp({ projectId: PROJECT });
 const auth = getAuth(app);
 const db = getFirestore(app);
+const bucket = getStorage(app).bucket(`${PROJECT}.appspot.com`);
+
+/** A real, solid-colour PNG of the given size (so previews and Storage get a genuine image). */
+function png(width: number, height: number, rgb: [number, number, number]): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const out = Buffer.alloc(body.length + 8);
+    out.writeUInt32BE(data.length, 0);
+    body.copy(out, 4);
+    out.writeUInt32BE(crc32(body), body.length + 4);
+    return out;
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
+  const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: width }, () => rgb).flat())]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+async function storedExists(path: string | undefined): Promise<boolean> {
+  if (!path) return false;
+  return (await bucket.file(path).exists())[0];
+}
+
+/**
+ * The browser can't reach the emulator through storage.googleapis.com URLs (or may be
+ * offline for YouTube): serve stored thumbnails from the Storage emulator and YouTube's
+ * default thumbnail as a local 4:3 image, so what renders is the real flow.
+ */
+async function serveImages(page: Page) {
+  await page.route(`https://storage.googleapis.com/${PROJECT}.appspot.com/**`, async (route) => {
+    const path = decodeURIComponent(new URL(route.request().url()).pathname.replace(`/${PROJECT}.appspot.com/`, ""));
+    const [bytes] = await bucket.file(path).download().catch(() => [null]);
+    return bytes ? route.fulfill({ contentType: "image/png", body: bytes }) : route.fulfill({ status: 404 });
+  });
+  await page.route("https://i.ytimg.com/**", (route) => route.fulfill({ contentType: "image/png", body: png(480, 360, [20, 20, 20]) }));
+}
+
+/** Width/height of an element's box, and the object-fit of the image inside it. */
+async function frameOf(locator: ReturnType<Page["locator"]>) {
+  const box = await locator.boundingBox();
+  const img = locator.locator("img").first();
+  const fit = (await img.count()) ? await img.evaluate((el) => getComputedStyle(el).objectFit) : null;
+  return { ratio: box ? box.width / box.height : 0, width: box?.width ?? 0, fit };
+}
 
 async function idTokenFor(email: string): Promise<string> {
   const host = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099";
@@ -257,9 +311,13 @@ test.describe("content CRUD", () => {
     expect((await request.get("/videos/emulator-video")).status()).toBe(404);
 
     await page.getByRole("row", { name: /Emulator video/ }).getByRole("link", { name: "Edit" }).click();
+    await expect(page).toHaveURL(/\/admin\/videos\/[\w-]+$/); // on the editor before using its Delete
     await page.getByRole("button", { name: "Delete" }).click();
     await confirmDelete(page);
-    await expect(page).toHaveURL(/\/admin\/videos/);
+    // Back on the list with a "Deleted." toast, not left on a 404 for the deleted record.
+    await expect(page.getByRole("status").filter({ hasText: "Deleted." })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/videos(\?|$)/);
+    await expect(page.getByRole("heading", { level: 1, name: "Videos" })).toBeVisible();
     await expect(page.getByRole("row", { name: /Emulator video/ })).toHaveCount(0);
   });
 
@@ -322,6 +380,142 @@ test.describe("content CRUD", () => {
     await expect(field).toHaveValue("P268111, P12");
     expect((await doc!.ref.get()).data()?.relatedFaultCodes).toEqual(["P0420", "P268111", "P268172"]);
     await removeDocs("videos", "slug", SLUG);
+  });
+
+  test("video thumbnail: upload, preview, validation, replace, remove, delete and Storage cleanup (Short, 9:16)", async ({ page, request }) => {
+    test.setTimeout(240_000); // many page loads at several widths on a dev server
+    const SLUG = "thumbnail-short";
+    await serveImages(page);
+    await removeDocs("videos", "slug", SLUG); // leftovers from an interrupted run
+    await page.goto("/admin/videos/new");
+    await page.getByLabel(/^YouTube URL/).fill("https://www.youtube.com/shorts/abcdefghijk");
+    await expect(page.getByLabel("Video type")).toHaveValue("short"); // picked from the Shorts link
+    const preview = page.getByTestId("thumbnail-preview");
+    await expect(preview).toHaveAttribute("data-video-frame", "short");
+    expect((await frameOf(preview)).ratio).toBeCloseTo(9 / 16, 2);
+    await expect(page.getByText("YouTube's thumbnail (default, no custom image).")).toBeVisible();
+
+    // Instant checks in the browser: wrong type, too large. The bad file is not kept.
+    const upload = page.getByLabel(/^Upload image/);
+    await upload.setInputFiles({ name: "clip.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });
+    await expectFieldError(page, /^Upload image/, "Choose a JPEG, PNG or WebP image.");
+    expect(await upload.evaluate((i) => (i as HTMLInputElement).files?.length)).toBe(0);
+    await upload.setInputFiles({ name: "huge.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(2_000_001, 0xff) });
+    await expectFieldError(page, /^Upload image/, "That image is too large (max 2MB).");
+
+    // A landscape image in a Short's frame: cropped (object-fit: cover), never stretched.
+    await upload.setInputFiles({ name: "first.png", mimeType: "image/png", buffer: png(160, 90, [200, 40, 40]) });
+    await expect(upload).not.toHaveAttribute("aria-invalid");
+    await expect(preview.locator("img")).toHaveAttribute("src", /^blob:/);
+    expect((await frameOf(preview)).fit).toBe("cover");
+    await page.getByLabel(/^Title/).fill("Thumbnail Short");
+    await page.getByLabel(/^Slug/).fill(SLUG);
+    await page.getByRole("button", { name: "Publish video" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+
+    const ref = (await db.collection("videos").where("slug", "==", SLUG).get()).docs[0].ref;
+    const first = (await ref.get()).data()!;
+    expect(first).toMatchObject({ videoType: "short", thumbnailPath: expect.stringMatching(/^video-thumbnails\/default\/[\w-]+\.png$/) });
+    expect(first.thumbnail).toBe(`https://storage.googleapis.com/${PROJECT}.appspot.com/${first.thumbnailPath}`);
+    expect(await storedExists(first.thumbnailPath)).toBe(true);
+
+    // Public rendering in the Short's 9:16 frame on phone, tablet and desktop.
+    for (const width of [375, 820, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/videos");
+      const card = page.locator('[data-video-frame="short"]').first();
+      const f = await frameOf(card);
+      expect(f.ratio, `card at ${width}px`).toBeCloseTo(9 / 16, 2);
+      expect(f.fit).toBe("cover");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.goto(`/videos/${SLUG}`);
+      const player = page.locator('[data-video-frame="short"]');
+      expect((await frameOf(player)).ratio, `player at ${width}px`).toBeCloseTo(9 / 16, 2);
+      await expect(player.locator("img")).toHaveAttribute("src", first.thumbnail); // custom poster
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+    expect(await (await request.get(`/videos/${SLUG}`)).text()).toContain(first.thumbnail); // og:image / JSON-LD
+
+    // Replace: the new image is stored and the old file is deleted.
+    await page.goto(`/admin/videos/${ref.id}`);
+    await expect(page.getByTestId("thumbnail-preview").locator("img")).toHaveAttribute("src", first.thumbnail);
+    await page.getByLabel(/^Replace image/).setInputFiles({ name: "second.png", mimeType: "image/png", buffer: png(90, 160, [40, 40, 200]) });
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+    const second = (await ref.get()).data()!;
+    expect(second.thumbnailPath).not.toBe(first.thumbnailPath);
+    expect(await storedExists(second.thumbnailPath)).toBe(true);
+    expect(await storedExists(first.thumbnailPath)).toBe(false);
+
+    // Saving without touching the thumbnail keeps it.
+    await page.goto(`/admin/videos/${ref.id}`);
+    await page.getByLabel(/^Title/).fill("Thumbnail Short (edited)");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+    expect((await ref.get()).data()).toMatchObject({ thumbnail: second.thumbnail, thumbnailPath: second.thumbnailPath });
+
+    // Remove: back to YouTube's thumbnail, file deleted. "Keep" undoes it before saving.
+    await page.goto(`/admin/videos/${ref.id}`);
+    await page.getByRole("button", { name: "Remove thumbnail" }).click();
+    await expect(page.getByText(/Custom thumbnail will be removed when you save/)).toBeVisible();
+    await page.getByRole("button", { name: "Keep current thumbnail" }).click();
+    await page.getByRole("button", { name: "Remove thumbnail" }).click();
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+    const removed = (await ref.get()).data()!;
+    expect(removed.thumbnail).toBeUndefined();
+    expect(removed.thumbnailPath).toBeUndefined();
+    expect(await storedExists(second.thumbnailPath)).toBe(false);
+
+    // Deleting the video deletes its uploaded thumbnail too.
+    await page.goto(`/admin/videos/${ref.id}`);
+    await page.getByLabel(/^Upload image/).setInputFiles({ name: "third.png", mimeType: "image/png", buffer: png(90, 160, [40, 160, 40]) });
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+    const third = (await ref.get()).data()!;
+    expect(await storedExists(third.thumbnailPath)).toBe(true);
+    await page.goto(`/admin/videos/${ref.id}`);
+    await page.getByRole("button", { name: "Delete" }).click();
+    await confirmDelete(page);
+    await expect(page.getByRole("status").filter({ hasText: "Deleted." })).toBeVisible(); // back on the list: the delete has finished
+    expect((await ref.get()).exists).toBe(false);
+    await expect.poll(() => storedExists(third.thumbnailPath)).toBe(false);
+  });
+
+  test("video thumbnail: a standard video without a custom image uses YouTube's, in 16:9 everywhere", async ({ page }) => {
+    test.setTimeout(240_000); // many page loads at several widths on a dev server
+    const SLUG = "thumbnail-standard";
+    await serveImages(page);
+    await removeDocs("videos", "slug", SLUG); // leftovers from an interrupted run
+    await page.goto("/admin/videos/new");
+    await page.getByLabel(/^YouTube URL/).fill("https://youtu.be/abcdefghijk");
+    await expect(page.getByLabel("Video type")).toHaveValue("standard");
+    const preview = page.getByTestId("thumbnail-preview");
+    expect((await frameOf(preview)).ratio).toBeCloseTo(16 / 9, 2);
+    await expect(preview.locator("img")).toHaveAttribute("src", "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg");
+    await page.getByLabel(/^Title/).fill("Thumbnail standard");
+    await page.getByLabel(/^Slug/).fill(SLUG);
+    await page.getByRole("button", { name: "Publish video" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+    const doc = (await db.collection("videos").where("slug", "==", SLUG).get()).docs[0];
+    expect(doc.data()).toMatchObject({ videoType: "standard" });
+    expect(doc.data().thumbnail).toBeUndefined();
+
+    for (const width of [375, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/videos");
+      const card = page.getByRole("link", { name: /Thumbnail standard/ }).locator("[data-video-frame]");
+      const f = await frameOf(card);
+      expect(f.ratio, `card at ${width}px`).toBeCloseTo(16 / 9, 2);
+      expect(f.fit).toBe("cover");
+      await expect(card.locator("img")).toHaveAttribute("src", /i\.ytimg\.com\/vi\/abcdefghijk\/hqdefault\.jpg$/);
+      await page.goto(`/videos/${SLUG}`);
+      const player = page.locator('[data-video-frame="standard"]');
+      expect((await frameOf(player)).ratio, `player at ${width}px`).toBeCloseTo(16 / 9, 2);
+      await expect(player.locator("img")).toHaveCount(0); // nothing is loaded from YouTube before play
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await doc.ref.delete();
   });
 
   test("category: create -> shows as 'not public yet' until it has content -> delete", async ({ page }) => {
@@ -438,13 +632,14 @@ test.describe("form errors: shown on the field, entered data kept, reset only af
     await page.getByLabel(/^Title/).fill("Form test video");
     await page.getByLabel(/^Slug/).fill("form-test-video");
     await page.getByLabel("Description").fill("Description kept after an error.");
-    await page.getByLabel(/^Thumbnail override URL/).fill("http://insecure.example/thumb.jpg");
+    // Declared as a PNG (so the browser check passes) but not one: the server must catch it.
+    await page.getByLabel(/^Upload image/).setInputFiles({ name: "fake.png", mimeType: "image/png", buffer: Buffer.from("not really a png") });
     await page.getByLabel(/^Duration from YouTube/).fill("8 minutes");
     await page.getByRole("button", { name: "Save as draft" }).click();
 
     await expectSummary(page);
     await expectFieldError(page, /^YouTube URL/, "Couldn't find a valid YouTube video in that URL.");
-    await expectFieldError(page, /^Thumbnail override URL/, /Thumbnail must be an https:\/\/ URL/);
+    await expectFieldError(page, /^Upload image/, "That file isn't a real JPEG, PNG or WebP image.");
     await expectFieldError(page, /^Duration from YouTube/, "This isn't in a valid format.");
     await expect(page.getByLabel(/^YouTube URL/)).toHaveValue("definitely not a video");
     await expect(page.getByText("Not a recognised YouTube URL or ID yet.")).toBeVisible(); // preview matches the kept input
@@ -452,7 +647,7 @@ test.describe("form errors: shown on the field, entered data kept, reset only af
     await expect(page.getByLabel("Description")).toHaveValue("Description kept after an error.");
 
     await page.getByLabel(/^YouTube URL/).fill("https://www.youtube.com/watch?v=abcdefghijk");
-    await page.getByLabel(/^Thumbnail override URL/).fill("");
+    await page.getByLabel(/^Upload image/).setInputFiles([]);
     await page.getByLabel(/^Duration from YouTube/).fill("PT8M12S");
     await page.getByRole("button", { name: "Save as draft" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Created as a draft" })).toBeVisible();
@@ -531,7 +726,7 @@ test.describe("form errors: shown on the field, entered data kept, reset only af
     await expect(form.getByLabel("Caption")).toHaveValue("Caption kept after an error");
     await expect(form.getByLabel("Order")).toHaveValue("3");
 
-    // This suite has no Storage emulator, so a real upload fails server-side: the details must survive that too.
+    // A file that isn't really an image is rejected server-side: the details must survive that too.
     await form.getByLabel(/^Image/).setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from("not really a png") });
     await form.getByRole("button", { name: "Upload" }).click();
     await expect(page.getByRole("alert").filter({ hasText: /Could not upload|isn't a supported|image/i })).toBeVisible();

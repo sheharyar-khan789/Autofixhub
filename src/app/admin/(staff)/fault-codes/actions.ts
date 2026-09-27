@@ -110,5 +110,8 @@ export async function deleteFaultCodeAction(_prev: DeleteActionState, formData: 
   revalidatePath("/fault-codes");
   revalidateContent();
   revalidatePath("/fault-codes/[code]", "page");
+  // From an edit page, go back to the list: the deleted record's page no longer exists.
+  const back = formData.get("redirectTo");
+  if (back) redirect(withNotice(safeAdminNext(back), "deleted"));
   return { success: "Fault code deleted." };
 }

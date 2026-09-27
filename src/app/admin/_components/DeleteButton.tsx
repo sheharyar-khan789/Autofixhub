@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
 import { dangerBtn, FormMessage } from "./ui";
 
@@ -12,7 +11,7 @@ export interface DeleteActionState {
 
 /**
  * Delete with an accessible confirmation dialog. Errors are shown inline; on success
- * the row disappears (revalidation), or `redirectTo` is followed (e.g. from an edit page).
+ * the row disappears (revalidation), or the action redirects to `redirectTo` (e.g. from an edit page).
  */
 export function DeleteButton({
   action,
@@ -29,14 +28,13 @@ export function DeleteButton({
   redirectTo?: string;
   variant?: "row" | "button";
 }) {
-  const router = useRouter();
   const [state, formAction] = useActionState(action, {});
-  useEffect(() => {
-    if (state.success && redirectTo) router.push(`${redirectTo}?notice=deleted`);
-  }, [state.success, redirectTo, router]);
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-space-sm">
       <input type="hidden" name="id" value={id} />
+      {/* The action redirects here on success. A client-side redirect would race the action's
+          refresh of the current (now deleted) page and could leave a 404 on screen. */}
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
       <ConfirmSubmitButton
         confirmMessage={confirmMessage}
         title="Delete permanently?"

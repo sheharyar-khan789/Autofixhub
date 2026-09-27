@@ -3,6 +3,11 @@ export const MAX_PHOTO_BYTES = 1_500_000;
 export const MAX_TOTAL_PHOTO_BYTES = 4_000_000;
 /** Workshop gallery photos (admin upload) are higher quality than customer booking snaps. */
 export const MAX_GALLERY_PHOTO_BYTES = 8_000_000;
+/**
+ * Custom video thumbnails: YouTube's own 2MB thumbnail limit, which also keeps the whole
+ * video form inside one Server Action request (see serverActions.bodySizeLimit).
+ */
+export const MAX_THUMBNAIL_BYTES = 2_000_000;
 export type PhotoType = "image/jpeg" | "image/png" | "image/webp";
 
 export const PHOTO_EXTENSIONS: Record<PhotoType, string> = {
@@ -26,5 +31,15 @@ export function sniffImageType(b: Uint8Array): PhotoType | null {
     b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50
   )
     return "image/webp";
+  return null;
+}
+
+/**
+ * Quick check of a chosen thumbnail by its declared type and size, for instant feedback in
+ * the browser and as a first pass on the server. The server also checks the real bytes.
+ */
+export function thumbnailFileProblem(file: { size: number; type: string }): string | null {
+  if (!(file.type in PHOTO_EXTENSIONS)) return "Choose a JPEG, PNG or WebP image.";
+  if (file.size > MAX_THUMBNAIL_BYTES) return `That image is too large (max ${MAX_THUMBNAIL_BYTES / 1_000_000}MB).`;
   return null;
 }

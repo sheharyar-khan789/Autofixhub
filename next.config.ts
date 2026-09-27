@@ -46,6 +46,12 @@ const workshopFeatures = process.env.WORKSHOP_FEATURES_ENABLED === "true";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // Server Action bodies default to 1MB. The video editor sends a thumbnail of up to 2MB
+    // (MAX_THUMBNAIL_BYTES) with the form; 3MB leaves room for the other fields and stays
+    // under Vercel's 4.5MB request limit.
+    serverActions: { bodySizeLimit: "3mb" },
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

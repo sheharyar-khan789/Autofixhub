@@ -43,6 +43,8 @@ export default defineConfig({
       NEXT_PUBLIC_FIREBASE_APP_ID: "1:0:web:0",
       FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8080",
       FIREBASE_AUTH_EMULATOR_HOST: process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099",
+      // Video thumbnail uploads go to the Storage emulator.
+      FIREBASE_STORAGE_EMULATOR_HOST: process.env.FIREBASE_STORAGE_EMULATOR_HOST ?? "127.0.0.1:9199",
       // The browser login form talks to the Auth emulator too (src/lib/firebase/client.ts).
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099",
       SHOW_PLACEHOLDERS: "true",

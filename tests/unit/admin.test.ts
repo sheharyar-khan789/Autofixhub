@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { extractYoutubeId, youtubeWatchUrl } from "@/lib/admin/youtube";
 import { invalid, isSafeImageRef, parseCsvIds, parseLines, schemaErrors } from "@/lib/admin/forms";
 import { AdminConflictError, AdminNotFoundError, adminFailure } from "@/lib/admin/content";
+import { MAX_THUMBNAIL_BYTES, thumbnailFileProblem } from "@/lib/validation/photos";
 import {
   BOOKING_STATUSES,
   BOOKING_STATUS_LABELS,
@@ -126,6 +127,22 @@ describe("related fault codes (video and guide forms)", () => {
     expect(schemaErrors(res.success ? [] : res.error.issues).fieldErrors).toEqual({
       relatedFaultCodes: expect.stringMatching(/^Entry 2: Use P, B, C or U followed by 4 characters/),
     });
+  });
+});
+
+describe("video thumbnails and type", () => {
+  it("accepts JPEG, PNG and WebP up to the limit, and says what's wrong otherwise", () => {
+    for (const type of ["image/jpeg", "image/png", "image/webp"]) expect(thumbnailFileProblem({ type, size: MAX_THUMBNAIL_BYTES })).toBeNull();
+    expect(thumbnailFileProblem({ type: "image/gif", size: 10 })).toBe("Choose a JPEG, PNG or WebP image.");
+    expect(thumbnailFileProblem({ type: "image/svg+xml", size: 10 })).toBe("Choose a JPEG, PNG or WebP image.");
+    expect(thumbnailFileProblem({ type: "image/png", size: MAX_THUMBNAIL_BYTES + 1 })).toBe("That image is too large (max 2MB).");
+  });
+
+  it("existing videos default to the standard 16:9 type; Shorts are 'short'", () => {
+    const base = { id: "v", slug: "s", title: "t", youtubeUrl: "https://www.youtube.com/watch?v=abcdefghijk", youtubeVideoId: "abcdefghijk", status: "published" };
+    expect(videoSchema.parse(base)).toMatchObject({ videoType: "standard" });
+    expect(videoSchema.parse({ ...base, videoType: "short", thumbnailPath: "video-thumbnails/default/x.png" })).toMatchObject({ videoType: "short" });
+    expect(videoSchema.safeParse({ ...base, videoType: "vertical" }).success).toBe(false);
   });
 });
 

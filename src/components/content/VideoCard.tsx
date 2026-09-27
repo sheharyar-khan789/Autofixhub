@@ -1,6 +1,8 @@
 import { Play } from "lucide-react";
 import Link from "next/link";
-import { youtubeThumbnail, type Video } from "@/lib/models";
+import type { Video } from "@/lib/models";
+import { VIDEO_FRAME } from "./videoFrame";
+import { VideoThumbnail } from "./VideoThumbnail";
 
 /**
  * Video card. `featured` is the homepage's cinematic lead: a large thumbnail with the
@@ -16,7 +18,7 @@ export function VideoCard({
   /** Featured with no companions: an ultrawide 21:9 frame instead of a full-width 16:9 block. */
   alone?: boolean;
 }) {
-  const src = video.thumbnail ?? youtubeThumbnail(video.youtubeVideoId);
+  const short = video.videoType === "short";
   if (featured) {
     return (
       <li className="lg:col-span-2 lg:row-span-2">
@@ -25,13 +27,25 @@ export function VideoCard({
           className="card-lift group relative block h-full overflow-hidden rounded-lg border border-border-subtle bg-surface-container-lowest hover:border-border-medium"
         >
           <span className={`relative block h-full min-h-full w-full ${alone ? "aspect-video md:aspect-[21/9]" : "aspect-video"}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- thumbnails come from workshop content or YouTube, not a fixed set of domains */}
-            <img
-              src={src}
-              alt=""
-              loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 motion-safe:group-hover:scale-[1.03]"
-            />
+            {short ? (
+              // A Short keeps its own 9:16 frame, centred over a blurred copy that fills the wide tile.
+              <>
+                <VideoThumbnail src={video.thumbnail} youtubeVideoId={video.youtubeVideoId} className="scale-110 opacity-50 blur-2xl" />
+                <span className={`absolute inset-y-0 left-1/2 block -translate-x-1/2 overflow-hidden ${VIDEO_FRAME.short}`}>
+                  <VideoThumbnail
+                    src={video.thumbnail}
+                    youtubeVideoId={video.youtubeVideoId}
+                    className="transition-transform duration-700 motion-safe:group-hover:scale-[1.03]"
+                  />
+                </span>
+              </>
+            ) : (
+              <VideoThumbnail
+                src={video.thumbnail}
+                youtubeVideoId={video.youtubeVideoId}
+                className="transition-transform duration-700 motion-safe:group-hover:scale-[1.03]"
+              />
+            )}
             <span className="absolute inset-0 bg-[linear-gradient(to_top,rgb(9_11_13/0.95),rgb(9_11_13/0.35)_45%,transparent_75%)]" />
             <span className="absolute inset-x-0 bottom-0 flex items-end gap-space-md p-space-md md:p-8">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-container transition-transform motion-safe:group-hover:scale-105 md:h-14 md:w-14">
@@ -56,13 +70,14 @@ export function VideoCard({
         href={`/videos/${video.slug}`}
         className="card-lift group flex h-full flex-col gap-space-sm rounded-lg border border-border-subtle bg-surface-raised p-space-sm hover:border-border-medium hover:bg-surface-card"
       >
-        <div className="relative aspect-video overflow-hidden rounded bg-surface-card">
-          {/* eslint-disable-next-line @next/next/no-img-element -- thumbnails come from workshop content or YouTube, not a fixed set of domains */}
-          <img
-            src={src}
-            alt=""
-            loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-[1.04]"
+        <div
+          data-video-frame={video.videoType}
+          className={`relative overflow-hidden rounded bg-surface-card ${VIDEO_FRAME[video.videoType]} ${short ? "mx-auto w-full max-w-[18rem]" : ""}`}
+        >
+          <VideoThumbnail
+            src={video.thumbnail}
+            youtubeVideoId={video.youtubeVideoId}
+            className="transition-transform duration-500 motion-safe:group-hover:scale-[1.04]"
           />
           <span className="absolute inset-0 flex items-center justify-center bg-black/10">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container shadow-lg">

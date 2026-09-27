@@ -165,5 +165,8 @@ export async function deleteGuideAction(_prev: DeleteActionState, formData: Form
   revalidatePath("/guides");
   revalidateContent();
   revalidatePath("/guides/[slug]", "page");
+  // From an edit page, go back to the list: the deleted record's page no longer exists.
+  const back = formData.get("redirectTo");
+  if (back) redirect(withNotice(safeAdminNext(back), "deleted"));
   return { success: "Guide deleted." };
 }

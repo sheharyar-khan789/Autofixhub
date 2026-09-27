@@ -99,7 +99,13 @@ export default async function VideoPage({ params }: PageProps<"/videos/[slug]">)
             {meta.length > 0 && <p className="font-code text-label-code text-text-muted">{meta.join(" · ")}</p>}
           </header>
 
-          <VideoEmbed videoId={video.youtubeVideoId} title={video.title} youtubeUrl={video.youtubeUrl} />
+          <VideoEmbed
+            videoId={video.youtubeVideoId}
+            title={video.title}
+            youtubeUrl={video.youtubeUrl}
+            videoType={video.videoType}
+            poster={video.thumbnail}
+          />
 
           {video.description && <p className="whitespace-pre-line text-body-md text-text-primary">{video.description}</p>}
 

@@ -285,6 +285,10 @@ export const faultCodeSchema = z.object({
 });
 export type FaultCode = z.infer<typeof faultCodeSchema>;
 
+/** Standard videos are shown 16:9, YouTube Shorts 9:16. */
+export const VIDEO_TYPES = ["standard", "short"] as const;
+export type VideoType = (typeof VIDEO_TYPES)[number];
+
 /** videos/{id}. The video itself always stays on YouTube; this is metadata only. */
 export const videoSchema = z.object({
   id: z.string(),
@@ -292,7 +296,12 @@ export const videoSchema = z.object({
   title: z.string().min(1).max(160),
   youtubeUrl: httpsUrl,
   youtubeVideoId: z.string().regex(youtubeIdPattern),
+  /** Frame shape used wherever the video or its thumbnail is shown. */
+  videoType: z.enum(VIDEO_TYPES).default("standard"),
+  /** Custom thumbnail URL; without one the YouTube thumbnail is used. */
   thumbnail: z.string().max(500).optional(),
+  /** Storage object of an uploaded thumbnail (so it can be replaced/removed); absent for pasted URLs. */
+  thumbnailPath: z.string().max(300).optional(),
   description: z.string().max(2000).optional(),
   vehicleMake: z.string().max(60).optional(),
   vehicleModel: z.string().max(60).optional(),
