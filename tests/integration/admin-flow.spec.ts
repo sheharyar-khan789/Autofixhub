@@ -283,6 +283,47 @@ test.describe("content CRUD", () => {
     await expect(page.getByRole("row", { name: /P2002/ })).toHaveCount(0);
   });
 
+  test("fault code formats: 6-digit and hex codes save with optional fields blank, input is normalised", async ({ page, request }) => {
+    for (const [typed, stored] of [["P268172", "P268172"], [" p0a80 ", "P0A80"]] as const) {
+      await page.goto("/admin/fault-codes/new");
+      await page.getByLabel(/^Code/).fill(typed);
+      await page.getByLabel(/^Title/).fill(`Format test ${stored}`);
+      await page.getByLabel(/^Meaning/).fill("Emulator-only meaning text.");
+      await page.getByRole("button", { name: "Publish fault code" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+      const saved = (await db.collection("faultCodes").where("code", "==", stored).get()).docs[0]?.data();
+      expect(saved).toMatchObject({ code: stored, status: "published" });
+      expect(saved?.symptoms).toBeUndefined(); // blank optional fields are simply left out
+      expect(saved?.system).toBeUndefined();
+      expect((await request.get(`/fault-codes/${stored.toLowerCase()}`)).status()).toBe(200);
+      await removeDocs("faultCodes", "code", stored);
+    }
+  });
+
+  test("video form: related fault codes accept 4- and 6-digit codes, comma-separated with optional spaces", async ({ page }) => {
+    const SLUG = "related-codes-video";
+    await page.goto("/admin/videos/new");
+    await page.getByLabel(/^YouTube URL/).fill("https://www.youtube.com/watch?v=abcdefghijk");
+    await page.getByLabel(/^Title/).fill("Related codes video");
+    await page.getByLabel(/^Slug/).fill(SLUG);
+    await page.getByLabel(/^Related fault codes/).fill("P0420, P268111,P268172");
+    await page.getByRole("button", { name: "Save as draft" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Created as a draft" })).toBeVisible();
+    const doc = (await db.collection("videos").where("slug", "==", SLUG).get()).docs[0];
+    expect(doc?.data().relatedFaultCodes).toEqual(["P0420", "P268111", "P268172"]);
+
+    // Edit: the saved codes round-trip, and a bad entry is reported on the field with the entry number.
+    await page.goto(`/admin/videos/${doc!.id}`);
+    const field = page.getByLabel(/^Related fault codes/);
+    await expect(field).toHaveValue("P0420, P268111, P268172");
+    await field.fill("P268111, P12");
+    await page.getByRole("button", { name: "Save draft" }).click();
+    await expectFieldError(page, /^Related fault codes/, /^Entry 2: Use P, B, C or U followed by 4 characters/);
+    await expect(field).toHaveValue("P268111, P12");
+    expect((await doc!.ref.get()).data()?.relatedFaultCodes).toEqual(["P0420", "P268111", "P268172"]);
+    await removeDocs("videos", "slug", SLUG);
+  });
+
   test("category: create -> shows as 'not public yet' until it has content -> delete", async ({ page }) => {
     await page.goto("/admin/categories/new");
     await page.getByLabel(/^Name/).fill("Emulator topic");
@@ -429,7 +470,7 @@ test.describe("form errors: shown on the field, entered data kept, reset only af
     await page.getByRole("button", { name: "Save as draft" }).click();
 
     await expectSummary(page);
-    await expectFieldError(page, /^Code/, "This isn't in a valid format.");
+    await expectFieldError(page, /^Code/, /^Use P, B, C or U followed by 4 characters/);
     await expectFieldError(page, /^Symptoms/, "Entry 2: Must be 200 characters or fewer.");
     await expect(page.getByLabel(/^Meaning/)).toHaveValue("Meaning kept after an error.");
     await expect(page.getByLabel(/^System/)).toHaveValue("Exhaust / emissions");

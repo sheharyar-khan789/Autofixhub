@@ -144,7 +144,13 @@ export const serviceSchema = z.object({
 export type Service = z.infer<typeof serviceSchema>;
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const faultCodePattern = /^[PBCU]\d{4}$/i;
+/**
+ * OBD fault code: P, B, C or U, then either the standard 4 characters (hex, so
+ * hybrid/manufacturer codes like P0A80 fit) or a 6-digit manufacturer code (P268172).
+ */
+const faultCodePattern = /^[PBCU](?:[0-9A-F]{4}|\d{6})$/i;
+const faultCodeMessage = "Use P, B, C or U followed by 4 characters (e.g. P0420, P0A80) or 6 digits (e.g. P268172).";
+const faultCode = z.string().regex(faultCodePattern, faultCodeMessage).transform((c) => c.toUpperCase());
 const youtubeIdPattern = /^[\w-]{11}$/;
 const categorySlugs = z.array(z.string().regex(slugPattern)).max(12).optional();
 const textList = (max: number) => z.array(z.string().min(1).max(max)).max(20).optional();
@@ -225,7 +231,7 @@ export const guideSchema = z.object({
   /** Important notes / safety warnings. */
   warnings: textList(300),
   relatedServiceIds: z.array(z.string()).max(12).optional(),
-  relatedFaultCodes: z.array(z.string().regex(faultCodePattern).transform((c) => c.toUpperCase())).max(12).optional(),
+  relatedFaultCodes: z.array(faultCode).max(12).optional(),
   relatedVideoIds: z.array(z.string()).max(12).optional(),
   relatedGuideSlugs: z.array(z.string().regex(slugPattern)).max(12).optional(),
   categorySlugs,
@@ -255,10 +261,7 @@ export type Guide = z.infer<typeof guideSchema>;
  */
 export const faultCodeSchema = z.object({
   id: z.string(),
-  code: z
-    .string()
-    .regex(faultCodePattern)
-    .transform((c) => c.toUpperCase()),
+  code: faultCode,
   title: z.string().min(1).max(160),
   meaning: z.string().min(1).max(2000),
   scope: z.enum(["generic", "manufacturer-specific"]).default("generic"),
@@ -295,7 +298,7 @@ export const videoSchema = z.object({
   vehicleModel: z.string().max(60).optional(),
   category: z.string().max(80).optional(),
   relatedGuideSlug: z.string().optional(),
-  relatedFaultCodes: z.array(z.string().regex(faultCodePattern).transform((c) => c.toUpperCase())).max(12).optional(),
+  relatedFaultCodes: z.array(faultCode).max(12).optional(),
   relatedServiceIds: z.array(z.string()).max(12).optional(),
   categorySlugs,
   /** The date the video was published ON YOUTUBE, entered by the author. Never inferred. */

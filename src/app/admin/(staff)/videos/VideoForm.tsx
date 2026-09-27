@@ -99,7 +99,7 @@ export function VideoForm({
         </label>
         <label className={labelClass}>
           Related fault codes (comma-separated)
-          <input {...fieldProps(state.fieldErrors, "relatedFaultCodes")} defaultValue={csv(video?.relatedFaultCodes)} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "relatedFaultCodes")} defaultValue={csv(video?.relatedFaultCodes)} placeholder="P0420, P268172" className={inputClass} />
           <FieldError errors={state.fieldErrors} name="relatedFaultCodes" />
         </label>
         <label className={labelClass}>

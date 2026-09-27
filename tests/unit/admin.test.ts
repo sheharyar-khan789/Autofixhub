@@ -8,6 +8,8 @@ import {
   contentCategorySchema,
   faultCodeSchema,
   galleryImageSchema,
+  guideSchema,
+  videoSchema,
   reviewSchema,
   businessSettingsSchema,
   socialLinksSchema,
@@ -64,6 +66,66 @@ describe("admin form parsing helpers", () => {
     expect(parseCsvIds("a, b ,,c")).toEqual(["a", "b", "c"]);
     expect(parseCsvIds(" , ,")).toBeUndefined();
     expect(parseCsvIds(null)).toBeUndefined();
+  });
+});
+
+describe("fault code format", () => {
+  const input = faultCodeSchema.omit({ id: true });
+  const base = { title: "Title", meaning: "Meaning", status: "draft" };
+
+  it.each(["P0420", "p0420", "P0A80", "U3FFF", "B1234", "C0035", "P268172", "u123456"])("accepts %s", (code) => {
+    const res = input.safeParse({ ...base, code });
+    expect(res.success).toBe(true);
+    expect(res.success && res.data.code).toBe(code.toUpperCase());
+  });
+
+  it.each(["P042", "P04200", "P2681720", "X0420", "P0G00", "P26817A", "0420", ""])("rejects %j with an explanation", (code) => {
+    const res = input.safeParse({ ...base, code });
+    expect(res.success).toBe(false);
+    expect(schemaErrors(res.success ? [] : res.error.issues).fieldErrors?.code).toMatch(/^Use P, B, C or U followed by 4 characters/);
+  });
+
+  it("saves with every optional field left blank", () => {
+    const res = input.safeParse({ ...base, code: "P268172" });
+    expect(res.success).toBe(true);
+    expect(res.success && res.data).toMatchObject({ code: "P268172", scope: "generic" });
+  });
+});
+
+describe("related fault codes (video and guide forms)", () => {
+  // Exactly what the video/guide actions do with the comma-separated input.
+  const fromInput = (v: string) => parseCsvIds(v)?.map((c) => c.toUpperCase());
+
+  it.each([
+    ["P268111,P268172", ["P268111", "P268172"]],
+    ["P0420, P268111,P268172", ["P0420", "P268111", "P268172"]],
+    ["  p0420 ,  p268111  ,", ["P0420", "P268111"]],
+    ["P0A80, U3FFF, B123456", ["P0A80", "U3FFF", "B123456"]],
+  ])("accepts %j", (typed, expected) => {
+    for (const schema of [videoSchema, guideSchema]) {
+      const res = schema.shape.relatedFaultCodes.safeParse(fromInput(typed));
+      expect(res.success).toBe(true);
+      expect(res.data).toEqual(expected);
+    }
+  });
+
+  it("a blank field is allowed", () => {
+    expect(fromInput("  ")).toBeUndefined();
+    expect(videoSchema.shape.relatedFaultCodes.safeParse(undefined).success).toBe(true);
+  });
+
+  it("points at the bad entry", () => {
+    const res = videoSchema.omit({ id: true }).safeParse({
+      slug: "s",
+      title: "t",
+      youtubeUrl: "https://www.youtube.com/watch?v=abcdefghijk",
+      youtubeVideoId: "abcdefghijk",
+      relatedFaultCodes: fromInput("P268111, P12, P2681"),
+      status: "draft",
+    });
+    expect(schemaErrors(res.success ? [] : res.error.issues).fieldErrors).toEqual({
+      relatedFaultCodes: expect.stringMatching(/^Entry 2: Use P, B, C or U followed by 4 characters/),
+    });
   });
 });
 

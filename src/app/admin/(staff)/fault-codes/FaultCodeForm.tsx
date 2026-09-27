@@ -19,8 +19,8 @@ export function FaultCodeForm({ faultCode, categories }: { faultCode?: FaultCode
     <form {...formProps} className="flex flex-col gap-space-lg">
       <div className="grid gap-space-md sm:grid-cols-3">
         <label className={labelClass}>
-          <span>Code (e.g. P0301)<Req /></span>
-          <input {...fieldProps(state.fieldErrors, "code")} defaultValue={faultCode?.code} required pattern="[A-Za-z][0-9A-Za-z]{4}" className={`${inputClass} font-code uppercase`} />
+          <span>Code (e.g. P0420 or P268172)<Req /></span>
+          <input {...fieldProps(state.fieldErrors, "code")} defaultValue={faultCode?.code} required pattern="\s*[PBCUpbcu](?:[0-9A-Fa-f]{4}|[0-9]{6})\s*" title="P, B, C or U followed by 4 characters (e.g. P0420) or 6 digits (e.g. P268172)" className={`${inputClass} font-code uppercase`} />
           <FieldError errors={state.fieldErrors} name="code" />
         </label>
         <label className={labelClass}>

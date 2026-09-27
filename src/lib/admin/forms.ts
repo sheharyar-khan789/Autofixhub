@@ -34,7 +34,8 @@ function issueMessage(issue: Issue): string {
   else if (code === "too_big" && origin === "number") msg = `Must be ${maximum} or less.`;
   else if (code === "too_big" && origin === "array") msg = `Too many entries (maximum ${maximum}).`;
   else if (code === "invalid_type") msg = issue.input === undefined ? "This field is required." : "Enter a valid value.";
-  else if (code === "invalid_format") msg = "This isn't in a valid format.";
+  // Zod's own format messages start with "Invalid"; a schema's custom message is kept.
+  else if (code === "invalid_format" && msg.startsWith("Invalid")) msg = "This isn't in a valid format.";
   else if (code === "invalid_value") msg = "Choose one of the listed options.";
   const index = issue.path[1];
   return typeof index === "number" ? `Entry ${index + 1}: ${msg}` : msg;

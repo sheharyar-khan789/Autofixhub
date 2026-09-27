@@ -27,9 +27,9 @@ export type ActionState = FormState;
 
 function parseForm(formData: FormData) {
   const raw = {
-    code: String(formData.get("code") ?? "").toUpperCase(),
-    title: String(formData.get("title") ?? ""),
-    meaning: String(formData.get("meaning") ?? ""),
+    code: String(formData.get("code") ?? "").replace(/\s+/g, "").toUpperCase(),
+    title: String(formData.get("title") ?? "").trim(),
+    meaning: String(formData.get("meaning") ?? "").trim(),
     scope: String(formData.get("scope") ?? "generic"),
     symptoms: parseLines(formData.get("symptoms")),
     possibleCauses: parseLines(formData.get("possibleCauses")),
