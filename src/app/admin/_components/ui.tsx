@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { BookingStatus, PublishStatus } from "@/lib/models";
+import type { FieldErrors } from "@/lib/admin/forms";
 import { BOOKING_STATUS_LABELS } from "@/lib/models";
 
 /**
@@ -9,7 +10,7 @@ import { BOOKING_STATUS_LABELS } from "@/lib/models";
  */
 
 export const inputClass =
-  "w-full min-h-11 rounded-md border border-border-medium bg-surface-container-lowest px-space-md py-space-sm text-body-md font-normal text-text-primary placeholder:text-text-muted/70 transition-colors hover:border-text-muted/60 focus:border-text-primary disabled:opacity-60";
+  "w-full min-h-11 rounded-md border border-border-medium bg-surface-container-lowest px-space-md py-space-sm text-body-md font-normal text-text-primary placeholder:text-text-muted/70 transition-colors hover:border-text-muted/60 focus:border-text-primary disabled:opacity-60 aria-[invalid=true]:border-status-fault-red";
 export const labelClass = "flex flex-col gap-space-xs text-body-sm font-semibold text-text-primary";
 export const hintClass = "text-body-sm font-normal text-text-muted";
 export const cardClass = "rounded-lg border border-border-subtle bg-surface-raised p-space-lg";
@@ -136,6 +137,30 @@ export function FormMessage({ error, success }: { error?: string | null; success
     >
       {error ?? success}
     </p>
+  );
+}
+
+/**
+ * `name` plus the error wiring for an input: `{...fieldProps(state.fieldErrors, "slug")}`.
+ * Pair with <FieldError> after the input.
+ */
+export function fieldProps(errors: FieldErrors | undefined, name: string) {
+  const invalid = Boolean(errors?.[name]);
+  return { name, "aria-invalid": invalid || undefined, "aria-describedby": invalid ? `${name}-error` : undefined };
+}
+
+/**
+ * The error for one input, shown right under it. aria-hidden keeps the message out of
+ * the enclosing <label>'s accessible name; screen readers still get it through the
+ * input's aria-describedby.
+ */
+export function FieldError({ errors, name }: { errors?: FieldErrors; name: string }) {
+  const message = errors?.[name];
+  if (!message) return null;
+  return (
+    <span id={`${name}-error`} aria-hidden="true" data-field-error={name} className="text-body-sm font-normal text-status-fault-red">
+      {message}
+    </span>
   );
 }
 

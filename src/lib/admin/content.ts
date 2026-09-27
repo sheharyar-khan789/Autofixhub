@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { businessId } from "@/lib/env";
 import { getDb } from "@/lib/firebase/admin";
 import { logServerError } from "@/lib/logger";
+import { invalid, type FormState } from "@/lib/admin/forms";
 import {
   contentCategorySchema,
   faultCodeSchema,
@@ -83,7 +84,11 @@ export class AdminNotFoundError extends Error {
 
 /** Thrown when a slug/code is already used by another record in the same collection. */
 export class AdminConflictError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    /** The form input the conflict belongs to (e.g. "slug"). */
+    readonly field?: string,
+  ) {
     super(message);
     this.name = "AdminConflictError";
   }
@@ -95,6 +100,14 @@ export function adminErrorMessage(err: unknown, fallback: string): string {
     return err.message;
   }
   return fallback;
+}
+
+/** Form state for a failed admin save: a conflict is shown on its input, anything else in the summary. */
+export function adminFailure(err: unknown, fallback: string): FormState {
+  if (err instanceof Error && err.name === "AdminConflictError" && (err as AdminConflictError).field) {
+    return invalid({ [(err as AdminConflictError).field!]: err.message });
+  }
+  return { error: adminErrorMessage(err, fallback) };
 }
 
 /** The field that must be unique per business for each collection (the public URL key). */
@@ -117,7 +130,7 @@ async function assertUnique(collection: string, input: Record<string, unknown>, 
     .limit(2)
     .get();
   if (snap.docs.some((d) => d.id !== selfId)) {
-    throw new AdminConflictError(`Another record already uses the ${field} "${value}". Choose a different ${field}.`);
+    throw new AdminConflictError(`Another record already uses the ${field} "${value}". Choose a different ${field}.`, field);
   }
 }
 

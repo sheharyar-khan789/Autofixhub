@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import type { ContentCategory, Video } from "@/lib/models";
 import { extractYoutubeId } from "@/lib/admin/youtube";
 import { saveVideoAction, type ActionState } from "./actions";
-import { FormMessage, inputClass, labelClass, Req } from "../../_components/ui";
+import { FieldError, fieldProps, FormMessage, inputClass, labelClass, Req } from "../../_components/ui";
+import { useAdminForm } from "../../_components/useAdminForm";
 import { EditorActions } from "../../_components/EditorActions";
 import { CategoryPicker } from "../../_components/CategoryPicker";
 import { CopyUrlButton } from "../../_components/CopyUrlButton";
@@ -23,21 +24,22 @@ export function VideoForm({
   guideUrl?: string;
 }) {
   const action = saveVideoAction.bind(null, video?.id ?? null);
-  const [state, formAction] = useActionState(action, initialState);
+  const { state, pending, formProps } = useAdminForm(action, initialState);
   const [urlInput, setUrlInput] = useState(video?.youtubeUrl ?? "");
   const previewId = extractYoutubeId(urlInput);
 
   return (
-    <form action={formAction} className="flex flex-col gap-space-lg">
+    <form {...formProps} className="flex flex-col gap-space-lg">
       <label className={labelClass}>
         <span>YouTube URL (watch, youtu.be, shorts or embed — or a bare video ID)<Req /></span>
         <input
-          name="youtubeUrl"
+          {...fieldProps(state.fieldErrors, "youtubeUrl")}
           defaultValue={video?.youtubeUrl}
           required
           onChange={(e) => setUrlInput(e.target.value)}
           className={inputClass}
         />
+        <FieldError errors={state.fieldErrors} name="youtubeUrl" />
       </label>
       {urlInput &&
         (previewId ? (
@@ -49,60 +51,71 @@ export function VideoForm({
       <div className="grid gap-space-md sm:grid-cols-2">
         <label className={labelClass}>
           <span>Title<Req /></span>
-          <input name="title" defaultValue={video?.title} required maxLength={160} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "title")} defaultValue={video?.title} required maxLength={160} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="title" />
         </label>
         <label className={labelClass}>
           <span>Slug<Req /></span>
-          <input name="slug" defaultValue={video?.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "slug")} defaultValue={video?.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="slug" />
         </label>
       </div>
 
       <label className={labelClass}>
         Description
-        <textarea name="description" defaultValue={video?.description} maxLength={2000} rows={3} className={inputClass} />
+        <textarea {...fieldProps(state.fieldErrors, "description")} defaultValue={video?.description} maxLength={2000} rows={3} className={inputClass} />
+        <FieldError errors={state.fieldErrors} name="description" />
       </label>
 
       <label className={labelClass}>
         Thumbnail override URL (optional — defaults to the YouTube thumbnail)
-        <input name="thumbnail" type="url" defaultValue={video?.thumbnail} className={inputClass} />
+        <input {...fieldProps(state.fieldErrors, "thumbnail")} type="url" defaultValue={video?.thumbnail} className={inputClass} />
+        <FieldError errors={state.fieldErrors} name="thumbnail" />
       </label>
 
       <div className="grid gap-space-md sm:grid-cols-3">
         <label className={labelClass}>
           Vehicle make
-          <input name="vehicleMake" defaultValue={video?.vehicleMake} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "vehicleMake")} defaultValue={video?.vehicleMake} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="vehicleMake" />
         </label>
         <label className={labelClass}>
           Vehicle model
-          <input name="vehicleModel" defaultValue={video?.vehicleModel} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "vehicleModel")} defaultValue={video?.vehicleModel} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="vehicleModel" />
         </label>
         <label className={labelClass}>
           Category
-          <input name="category" defaultValue={video?.category} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "category")} defaultValue={video?.category} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="category" />
         </label>
       </div>
 
       <div className="grid gap-space-md sm:grid-cols-3">
         <label className={labelClass}>
           Related guide slug
-          <input name="relatedGuideSlug" defaultValue={video?.relatedGuideSlug} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "relatedGuideSlug")} defaultValue={video?.relatedGuideSlug} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="relatedGuideSlug" />
         </label>
         <label className={labelClass}>
           Related fault codes (comma-separated)
-          <input name="relatedFaultCodes" defaultValue={csv(video?.relatedFaultCodes)} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "relatedFaultCodes")} defaultValue={csv(video?.relatedFaultCodes)} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="relatedFaultCodes" />
         </label>
         <label className={labelClass}>
           Published on YouTube (date, if known)
-          <input name="uploadDate" type="date" defaultValue={video?.uploadDate} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "uploadDate")} type="date" defaultValue={video?.uploadDate} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="uploadDate" />
         </label>
       </div>
 
       <label className={labelClass}>
         Duration from YouTube (optional, ISO 8601, e.g. PT8M12S)
-        <input name="duration" defaultValue={video?.duration} pattern="PT(\d+H)?(\d+M)?(\d+S)?" className={inputClass} />
+        <input {...fieldProps(state.fieldErrors, "duration")} defaultValue={video?.duration} pattern="PT(\d+H)?(\d+M)?(\d+S)?" className={inputClass} />
+        <FieldError errors={state.fieldErrors} name="duration" />
       </label>
 
-      <CategoryPicker categories={categories} selected={video?.categorySlugs} />
+      <CategoryPicker categories={categories} selected={video?.categorySlugs} errors={state.fieldErrors} />
 
       {guideUrl && (
         <p className="flex flex-wrap items-center gap-space-sm rounded border border-border-subtle bg-surface-raised p-space-md text-body-sm">
@@ -115,7 +128,8 @@ export function VideoForm({
       <div className="grid gap-space-md sm:grid-cols-3">
         <label className={labelClass}>
           Display order
-          <input name="order" type="number" defaultValue={video?.order} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "order")} type="number" defaultValue={video?.order} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="order" />
         </label>
       </div>
 
@@ -127,7 +141,7 @@ export function VideoForm({
       )}
 
       <FormMessage error={state.error} success={state.success} />
-      <EditorActions status={video?.status} noun="video" />
+      <EditorActions pending={pending} status={video?.status} noun="video" />
     </form>
   );
 }

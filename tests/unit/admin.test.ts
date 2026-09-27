@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { extractYoutubeId, youtubeWatchUrl } from "@/lib/admin/youtube";
-import { isSafeImageRef, parseCsvIds, parseLines } from "@/lib/admin/forms";
+import { invalid, isSafeImageRef, parseCsvIds, parseLines, schemaErrors } from "@/lib/admin/forms";
+import { AdminConflictError, AdminNotFoundError, adminFailure } from "@/lib/admin/content";
 import {
   BOOKING_STATUSES,
   BOOKING_STATUS_LABELS,
+  contentCategorySchema,
+  faultCodeSchema,
   galleryImageSchema,
   reviewSchema,
   businessSettingsSchema,
@@ -61,6 +64,71 @@ describe("admin form parsing helpers", () => {
     expect(parseCsvIds("a, b ,,c")).toEqual(["a", "b", "c"]);
     expect(parseCsvIds(" , ,")).toBeUndefined();
     expect(parseCsvIds(null)).toBeUndefined();
+  });
+});
+
+describe("admin form field errors", () => {
+  const categoryInput = contentCategorySchema.omit({ id: true, createdAt: true, updatedAt: true });
+
+  it("puts each schema problem on its own input, in plain words, with a summary", () => {
+    const res = categoryInput.safeParse({ name: "", slug: "Not A Slug", seoTitle: "x".repeat(71), status: "draft" });
+    expect(res.success).toBe(false);
+    const state = schemaErrors(res.success ? [] : res.error.issues);
+    expect(state.fieldErrors).toEqual({
+      name: "This field is required.",
+      slug: "This isn't in a valid format.",
+      seoTitle: "Must be 70 characters or fewer.",
+    });
+    expect(state.error).toBe("Couldn't save: fix the 3 highlighted fields.");
+  });
+
+  it("keeps only the first message per input and names the entry of a list", () => {
+    const res = faultCodeSchema.omit({ id: true }).safeParse({
+      code: "P0420",
+      title: "t",
+      meaning: "m",
+      symptoms: ["ok", "x".repeat(201), "y".repeat(201)],
+      status: "draft",
+    });
+    const state = schemaErrors(res.success ? [] : res.error.issues);
+    expect(state.fieldErrors).toEqual({ symptoms: "Entry 2: Must be 200 characters or fewer." });
+    expect(state.error).toBe("Couldn't save: fix the highlighted field.");
+  });
+
+  it("errors found before schema validation win, and a custom path mapping is applied", () => {
+    const state = schemaErrors(
+      [{ code: "invalid_format", path: ["youtubeVideoId"], message: "Invalid string" }],
+      { youtubeUrl: "Couldn't find a valid YouTube video in that URL." },
+      (p) => (p[0] === "youtubeVideoId" ? "youtubeUrl" : undefined),
+    );
+    expect(state.fieldErrors).toEqual({ youtubeUrl: "Couldn't find a valid YouTube video in that URL." });
+  });
+
+  it("issues without an input go to the summary instead of being lost", () => {
+    expect(schemaErrors([{ path: [], message: "Something is wrong." }])).toEqual({ error: "Something is wrong." });
+    const mixed = schemaErrors([{ path: [], message: "Whole-form problem." }], { slug: "Taken." });
+    expect(mixed.fieldErrors).toEqual({ slug: "Taken." });
+    expect(mixed.error).toContain("Whole-form problem.");
+  });
+
+  it("custom schema messages are kept", () => {
+    const res = businessSettingsSchema.safeParse({ socialLinks: { facebook: "http://facebook.com/x" } });
+    const state = schemaErrors(res.success ? [] : res.error.issues, {}, (p) => (p[0] === "socialLinks" ? "socialFacebook" : undefined));
+    expect(state.fieldErrors).toEqual({ socialFacebook: "Must be an https:// link." });
+  });
+
+  it("a duplicate slug/code is shown on that input; other failures stay generic", () => {
+    const conflict = new AdminConflictError('Another record already uses the slug "dpf". Choose a different slug.', "slug");
+    expect(adminFailure(conflict, "fallback").fieldErrors).toEqual({ slug: conflict.message });
+    expect(adminFailure(new AdminNotFoundError(), "fallback")).toEqual({ error: "Record not found." });
+    expect(adminFailure(new Error("PERMISSION_DENIED: raw firestore detail"), "Could not save.")).toEqual({ error: "Could not save." });
+  });
+
+  it("invalid() builds the summary from the number of fields", () => {
+    expect(invalid({ file: "Choose an image to upload." })).toEqual({
+      fieldErrors: { file: "Choose an image to upload." },
+      error: "Couldn't save: fix the highlighted field.",
+    });
   });
 });
 

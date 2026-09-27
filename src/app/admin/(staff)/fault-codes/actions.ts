@@ -10,6 +10,7 @@ import { isNotConfigured } from "@/lib/env";
 import { logServerError } from "@/lib/logger";
 import {
   adminErrorMessage,
+  adminFailure,
   createAdmin,
   deleteAdminDoc,
   faultCodeInputSchema,
@@ -18,14 +19,11 @@ import {
   updateAdmin,
 } from "@/lib/admin/content";
 import { writeAuditLog } from "@/lib/admin/audit";
-import { parseCheckboxes, parseCsvIds, parseLines, saveNotice, statusFromForm, withNotice } from "@/lib/admin/forms";
+import { parseCheckboxes, parseCsvIds, parseLines, saveNotice, schemaErrors, statusFromForm, withNotice, type FormState } from "@/lib/admin/forms";
 import { PUBLISH_STATUSES, type PublishStatus } from "@/lib/models";
 import type { DeleteActionState } from "../../_components/DeleteButton";
 
-export interface ActionState {
-  error?: string;
-  success?: string;
-}
+export type ActionState = FormState;
 
 function parseForm(formData: FormData) {
   const raw = {
@@ -47,14 +45,14 @@ function parseForm(formData: FormData) {
     status: statusFromForm(formData),
   };
   const parsed = faultCodeInputSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the form for errors." };
+  if (!parsed.success) return { ok: false as const, state: schemaErrors(parsed.error.issues) };
   return { ok: true as const, data: parsed.data };
 }
 
 export async function saveFaultCodeAction(id: string | null, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireRole(CONTENT_ROLES);
   const parsed = parseForm(formData);
-  if (!parsed.ok) return { error: parsed.error };
+  if (!parsed.ok) return parsed.state;
 
   try {
     if (id) {
@@ -67,7 +65,7 @@ export async function saveFaultCodeAction(id: string | null, _prev: ActionState,
   } catch (err) {
     if (isNotConfigured(err)) return { error: "Firebase Admin is not configured here." };
     logServerError("admin.faultCode.save", err, { id: id ?? undefined });
-    return { error: adminErrorMessage(err, "Could not save the fault code. Try again.") };
+    return adminFailure(err, "Could not save the fault code. Try again.");
   }
   revalidatePath("/admin/fault-codes");
   revalidatePath("/fault-codes");

@@ -8,6 +8,7 @@ import { isNotConfigured } from "@/lib/env";
 import { logServerError } from "@/lib/logger";
 import {
   adminErrorMessage,
+  adminFailure,
   createAdmin,
   deleteAdminDoc,
   findServiceDeleteBlocker,
@@ -17,13 +18,10 @@ import {
   updateAdmin,
 } from "@/lib/admin/content";
 import { writeAuditLog } from "@/lib/admin/audit";
-import { isSafeImageRef } from "@/lib/admin/forms";
+import { isSafeImageRef, schemaErrors, type FieldErrors, type FormState } from "@/lib/admin/forms";
 import { PUBLISH_STATUSES, type PublishStatus } from "@/lib/models";
 
-export interface ActionState {
-  error?: string;
-  success?: string;
-}
+export type ActionState = FormState;
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -46,15 +44,14 @@ function parseForm(formData: FormData) {
     seoDescription: String(formData.get("seoDescription") ?? "") || undefined,
     status: String(formData.get("status") ?? "draft"),
   };
-  if (!slugPattern.test(raw.slug)) {
-    return { ok: false as const, error: "Slug must be lowercase letters, numbers and hyphens only." };
-  }
+  const extra: FieldErrors = {};
+  if (!slugPattern.test(raw.slug)) extra.slug = "Slug must be lowercase letters, numbers and hyphens only.";
   if (raw.image !== undefined && !isSafeImageRef(raw.image)) {
-    return { ok: false as const, error: "Image must be an https:// URL or a path on this site starting with /." };
+    extra.image = "Image must be an https:// URL or a path on this site starting with /.";
   }
   const parsed = serviceInputSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the form for errors." };
+  if (!parsed.success || Object.keys(extra).length) {
+    return { ok: false as const, state: schemaErrors(parsed.success ? [] : parsed.error.issues, extra) };
   }
   return { ok: true as const, data: parsed.data };
 }
@@ -62,7 +59,7 @@ function parseForm(formData: FormData) {
 export async function saveServiceAction(id: string | null, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireRole(CONTENT_ROLES);
   const parsed = parseForm(formData);
-  if (!parsed.ok) return { error: parsed.error };
+  if (!parsed.ok) return parsed.state;
 
   let savedId = id;
   try {
@@ -77,7 +74,7 @@ export async function saveServiceAction(id: string | null, _prev: ActionState, f
   } catch (err) {
     if (isNotConfigured(err)) return { error: "Firebase Admin is not configured here." };
     logServerError("admin.service.save", err, { id: id ?? undefined });
-    return { error: adminErrorMessage(err, "Could not save the service. Try again.") };
+    return adminFailure(err, "Could not save the service. Try again.");
   }
   revalidatePath("/admin/services");
   revalidatePath("/services");

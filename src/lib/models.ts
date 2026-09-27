@@ -26,7 +26,7 @@ export const DAY_LABELS: Record<DayKey, string> = {
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const httpsUrl = z
   .url()
-  .refine((u) => u.startsWith("https://"), { message: "must be https" });
+  .refine((u) => u.startsWith("https://"), { message: "Must be an https:// link." });
 
 export const openingDaySchema = z.object({
   day: z.enum(DAY_KEYS),

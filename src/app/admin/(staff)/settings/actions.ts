@@ -7,16 +7,28 @@ import { SETTINGS_ROLES } from "@/lib/auth/permissions";
 import { isNotConfigured } from "@/lib/env";
 import { logServerError } from "@/lib/logger";
 import { updateSettingsAdmin } from "@/lib/admin/settings";
+import { schemaErrors, type FieldErrors, type FormState } from "@/lib/admin/forms";
 import { businessSettingsSchema, DAY_KEYS, type BusinessSettings } from "@/lib/models";
 
-export interface ActionState {
-  error?: string;
-  success?: string;
-}
+export type ActionState = FormState;
 
 function optionalText(formData: FormData, key: string): string | undefined {
   const v = String(formData.get(key) ?? "").trim();
   return v || undefined;
+}
+
+const ADDRESS_FIELDS: Record<string, string> = { line1: "addressLine1", line2: "addressLine2", city: "addressCity", postcode: "addressPostcode" };
+
+/** Schema path -> the settings form input it came from. */
+function settingsField(path: readonly PropertyKey[], raw: BusinessSettings): string | undefined {
+  const [top, key, sub] = path;
+  if (top === "address" && typeof key === "string") return ADDRESS_FIELDS[key];
+  if (top === "socialLinks" && typeof key === "string") return `social${key[0].toUpperCase()}${key.slice(1)}`;
+  if (top === "openingHours" && typeof key === "number" && (sub === "open" || sub === "close")) {
+    const day = raw.openingHours?.[key]?.day;
+    return day ? `${sub}_${day}` : undefined;
+  }
+  return typeof top === "string" && key === undefined ? top : undefined;
 }
 
 export async function saveSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -26,6 +38,13 @@ export async function saveSettingsAction(_prev: ActionState, formData: FormData)
   const city = optionalText(formData, "addressCity");
   const postcode = optionalText(formData, "addressPostcode");
   const hasAddress = line1 && city && postcode;
+  // A partly filled address used to be dropped silently; point at the missing parts instead.
+  const extra: FieldErrors = {};
+  if (!hasAddress && (line1 || city || postcode || optionalText(formData, "addressLine2"))) {
+    for (const [key, value] of [["addressLine1", line1], ["addressCity", city], ["addressPostcode", postcode]] as const) {
+      if (!value) extra[key] = "Required when an address is entered.";
+    }
+  }
 
   const openingHours = DAY_KEYS.map((day) => {
     const closed = formData.get(`closed_${day}`) === "on";
@@ -60,7 +79,9 @@ export async function saveSettingsAction(_prev: ActionState, formData: FormData)
   };
 
   const parsed = businessSettingsSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form for errors." };
+  if (!parsed.success || Object.keys(extra).length) {
+    return schemaErrors(parsed.success ? [] : parsed.error.issues, extra, (path) => settingsField(path, raw));
+  }
 
   try {
     await updateSettingsAdmin(parsed.data, session);

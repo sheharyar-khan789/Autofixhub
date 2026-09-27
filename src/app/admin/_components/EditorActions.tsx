@@ -11,8 +11,20 @@ import { primaryBtn, secondaryBtn } from "./ui";
  * which the server action reads as the new status (statusFromForm). Both buttons are
  * disabled while saving, so a slow save can't be double-submitted.
  */
-export function EditorActions({ status, noun, message }: { status?: PublishStatus; noun: string; message?: React.ReactNode }) {
-  const { pending } = useFormStatus();
+export function EditorActions({
+  status,
+  noun,
+  message,
+  pending: pendingProp,
+}: {
+  status?: PublishStatus;
+  noun: string;
+  message?: React.ReactNode;
+  /** From useAdminForm; useFormStatus only sees submissions made through the form's `action`. */
+  pending?: boolean;
+}) {
+  const formStatus = useFormStatus();
+  const pending = pendingProp ?? formStatus.pending;
   const [clicked, setClicked] = useState<"draft" | "published" | null>(null);
   const published = status === "published";
   const spinner = <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />;

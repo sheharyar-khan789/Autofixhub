@@ -1,3 +1,67 @@
+/** Per-input error messages, keyed by the input's `name`. */
+export type FieldErrors = Record<string, string>;
+
+/** Result of an admin form action (see admin useAdminForm). */
+export interface FormState {
+  error?: string;
+  success?: string;
+  fieldErrors?: FieldErrors;
+}
+
+/** A failed save whose problems belong to specific inputs; the summary points at them. */
+export function invalid(fieldErrors: FieldErrors): FormState {
+  const n = Object.keys(fieldErrors).length;
+  return { fieldErrors, error: n === 1 ? "Couldn't save: fix the highlighted field." : `Couldn't save: fix the ${n} highlighted fields.` };
+}
+
+interface Issue {
+  code?: string;
+  path: readonly PropertyKey[];
+  message: string;
+  origin?: string;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  input?: unknown;
+}
+
+/** Zod's default messages rewritten for staff; custom messages pass through unchanged. */
+function issueMessage(issue: Issue): string {
+  const { code, origin, minimum, maximum } = issue;
+  let msg = issue.message;
+  if (code === "too_small" && origin === "string") msg = Number(minimum) <= 1 ? "This field is required." : `Must be at least ${minimum} characters.`;
+  else if (code === "too_big" && origin === "string") msg = `Must be ${maximum} characters or fewer.`;
+  else if (code === "too_small" && origin === "number") msg = `Must be ${minimum} or more.`;
+  else if (code === "too_big" && origin === "number") msg = `Must be ${maximum} or less.`;
+  else if (code === "too_big" && origin === "array") msg = `Too many entries (maximum ${maximum}).`;
+  else if (code === "invalid_type") msg = issue.input === undefined ? "This field is required." : "Enter a valid value.";
+  else if (code === "invalid_format") msg = "This isn't in a valid format.";
+  else if (code === "invalid_value") msg = "Choose one of the listed options.";
+  const index = issue.path[1];
+  return typeof index === "number" ? `Entry ${index + 1}: ${msg}` : msg;
+}
+
+/**
+ * Schema issues -> the first message for each input. `fieldFor` maps an issue path to
+ * the input's `name` (default: the top-level key); unmapped issues go in the summary.
+ * `extra` holds errors found before schema validation; they win over schema messages.
+ */
+export function schemaErrors(
+  issues: readonly Issue[],
+  extra: FieldErrors = {},
+  fieldFor: (path: readonly PropertyKey[]) => string | undefined = (p) => (typeof p[0] === "string" ? p[0] : undefined),
+): FormState {
+  const fieldErrors: FieldErrors = { ...extra };
+  let formError: string | undefined;
+  for (const issue of issues) {
+    const field = fieldFor(issue.path);
+    if (field) fieldErrors[field] ??= issueMessage(issue);
+    else formError ??= issueMessage(issue);
+  }
+  if (!Object.keys(fieldErrors).length) return { error: formError ?? "Check the form for errors." };
+  const state = invalid(fieldErrors);
+  return formError ? { ...state, error: `${state.error} ${formError}` } : state;
+}
+
 /** Newline-separated textarea -> trimmed non-empty string array, or undefined if empty. */
 export function parseLines(v: FormDataEntryValue | null): string[] | undefined {
   const lines = String(v ?? "")

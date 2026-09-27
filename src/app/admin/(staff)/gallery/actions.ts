@@ -7,14 +7,12 @@ import { isNotConfigured } from "@/lib/env";
 import { logServerError } from "@/lib/logger";
 import { deleteGalleryImageAdmin, updateGalleryImageAdmin, uploadGalleryImageAdmin } from "@/lib/admin/gallery";
 import { adminErrorMessage } from "@/lib/admin/content";
+import { invalid, type FormState } from "@/lib/admin/forms";
 import { MAX_GALLERY_PHOTO_BYTES } from "@/lib/validation/photos";
 import { PUBLISH_STATUSES, type PublishStatus } from "@/lib/models";
 import type { DeleteActionState } from "../../_components/DeleteButton";
 
-export interface ActionState {
-  error?: string;
-  success?: string;
-}
+export type ActionState = FormState;
 
 function publishStatus(v: FormDataEntryValue | null): PublishStatus | undefined {
   const s = String(v ?? "");
@@ -43,15 +41,15 @@ function revalidateGallery() {
 export async function uploadGalleryImageAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireRole(CONTENT_ROLES);
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image to upload." };
+  if (!(file instanceof File) || file.size === 0) return invalid({ file: "Choose an image to upload." });
   if (file.size > MAX_GALLERY_PHOTO_BYTES) {
-    return { error: `That image is too large (max ${Math.round(MAX_GALLERY_PHOTO_BYTES / 1_000_000)}MB).` };
+    return invalid({ file: `That image is too large (max ${Math.round(MAX_GALLERY_PHOTO_BYTES / 1_000_000)}MB).` });
   }
   const rawOrder = String(formData.get("order") ?? "").trim();
   const order = rawOrder ? orderValue(rawOrder) : 0;
-  if (order === undefined) return { error: "Order must be a whole number." };
+  if (order === undefined) return invalid({ order: "Order must be a whole number." });
   const status = publishStatus(formData.get("status") ?? "draft");
-  if (!status) return { error: "Choose a valid status." };
+  if (!status) return invalid({ status: "Choose a valid status." });
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   try {

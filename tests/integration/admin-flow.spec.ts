@@ -1,7 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
 
 /**
  * End-to-end admin workflow against the Firebase EMULATORS (Auth + Firestore):
@@ -38,6 +38,39 @@ async function loginViaForm(page: Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+/** Turn off the browser's own checks so the server action's validation is what's exercised. */
+async function serverValidationOnly(page: Page) {
+  await page.waitForLoadState("networkidle"); // after hydration, so React doesn't see a changed attribute
+  await page.locator("form").evaluateAll((forms) =>
+    forms.forEach((f) => {
+      (f as HTMLFormElement).noValidate = true;
+      // maxlength truncates typing rather than blocking submit, so an over-long value would never reach the server.
+      f.querySelectorAll("[maxlength]").forEach((el) => el.removeAttribute("maxlength"));
+    }),
+  );
+}
+
+/** The input is marked invalid and its error message is attached to it (not just shown somewhere). */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+async function expectFieldError(page: Page, label: string | RegExp, message: string | RegExp) {
+  // getByLabel matches the label's text, which now also contains the visible error; match its start.
+  const input = page.getByLabel(typeof label === "string" ? new RegExp(`^${escapeRe(label)}`) : label);
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await expect(input).toHaveAccessibleDescription(message);
+  // The message is announced as the description, not repeated in the field's accessible name.
+  if (typeof message === "string") await expect(input).not.toHaveAccessibleName(new RegExp(escapeRe(message)));
+}
+
+async function expectSummary(page: Page) {
+  await expect(page.getByRole("alert").filter({ hasText: /Couldn't save: fix the/ })).toBeVisible();
+}
+
+async function removeDocs(collection: string, field: string, value: string) {
+  const snap = await db.collection(collection).where(field, "==", value).get();
+  await Promise.all(snap.docs.map((d) => d.ref.delete()));
 }
 
 /** Confirm the accessible delete dialog opened by a row/editor "Delete" button. */
@@ -263,14 +296,285 @@ test.describe("content CRUD", () => {
     await expect(page.getByRole("row", { name: /Emulator topic/ })).toHaveCount(0);
   });
 
-  test("duplicate slugs are rejected with a clear message (no data overwritten)", async ({ page }) => {
+  test("duplicate slugs are rejected on the slug field (no data overwritten, nothing typed is lost)", async ({ page }) => {
     for (let i = 0; i < 2; i++) {
       await page.goto("/admin/categories/new");
       await page.getByLabel(/^Name/).fill(`Dup ${i}`);
       await page.getByLabel(/^Slug/).fill("dup-slug");
       await page.getByRole("button", { name: "Save as draft" }).click();
     }
-    await expect(page.getByRole("alert").filter({ hasText: /already uses the slug/ })).toBeVisible();
+    await expectSummary(page);
+    await expectFieldError(page, /^Slug/, /already uses the slug "dup-slug"/);
+    await expect(page.getByLabel(/^Name/)).toHaveValue("Dup 1");
+    await expect(page).toHaveURL(/\/admin\/categories\/new$/);
+    await removeDocs("categories", "slug", "dup-slug");
+  });
+});
+
+test.describe("form errors: shown on the field, entered data kept, reset only after a successful save", () => {
+  test.beforeEach(async ({ context }) => staffSession(context));
+
+  test("category: create", async ({ page }) => {
+    await page.goto("/admin/categories/new");
+    await serverValidationOnly(page);
+    await page.getByLabel(/^Name/).fill("Form test category");
+    await page.getByLabel(/^Slug/).fill("Not A Slug");
+    await page.getByLabel("Type").selectOption("vehicle");
+    await page.getByLabel("Description", { exact: true }).fill("Kept after an error.");
+    await page.getByLabel("SEO title").fill("x".repeat(71));
+    await page.getByRole("button", { name: "Save as draft" }).click();
+
+    await expectSummary(page);
+    await expectFieldError(page, /^Slug/, "This isn't in a valid format.");
+    await expectFieldError(page, "SEO title", "Must be 70 characters or fewer.");
+    await expect(page.getByLabel(/^Slug/)).toBeFocused();
+    await expect(page.getByLabel(/^Name/)).toHaveValue("Form test category");
+    await expect(page.getByLabel(/^Name/)).not.toHaveAttribute("aria-invalid");
+    await expect(page.getByLabel("Type")).toHaveValue("vehicle");
+    await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Kept after an error.");
+
+    await page.getByLabel(/^Slug/).fill("form-test-category");
+    await page.getByLabel("SEO title").fill("Short title");
+    await page.getByRole("button", { name: "Save as draft" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Created as a draft" })).toBeVisible();
+    const saved = await db.collection("categories").where("slug", "==", "form-test-category").get();
+    expect(saved.docs[0]?.data()).toMatchObject({ kind: "vehicle", description: "Kept after an error.", seoTitle: "Short title", status: "draft" });
+    await removeDocs("categories", "slug", "form-test-category");
+  });
+
+  test("guide: create with several bad fields, then edit", async ({ page }) => {
+    const SLUG = "form-test-guide";
+    await page.goto("/admin/guides/new");
+    await serverValidationOnly(page);
+    await page.getByLabel(/^Title/).fill("Form test guide");
+    await page.getByLabel(/^Slug/).fill(SLUG);
+    await page.getByLabel(/^Summary/).fill("Summary kept after an error.");
+    await page.getByLabel(/^Main content/).fill("Paragraph one.\n\nParagraph two.");
+    await page.getByLabel("Make", { exact: true }).fill("Volkswagen");
+    await page.getByLabel("Fuel type").selectOption("diesel");
+    await page.getByLabel("DPF", { exact: true }).check();
+    await page.getByLabel(/^YouTube video URL/).fill("https://example.com/not-a-video");
+    await page.getByLabel(/^Featured image URL/).fill("http://insecure.example/photo.jpg");
+    await page.getByLabel(/^FAQ/).fill("Q: A question without an answer");
+    await page.getByRole("button", { name: "Publish guide" }).click();
+
+    await expectSummary(page);
+    await expect(page.getByRole("alert").filter({ hasText: "fix the 3 highlighted fields" })).toBeVisible();
+    await expectFieldError(page, /^YouTube video URL/, "Couldn't find a valid YouTube video in that URL.");
+    await expectFieldError(page, /^Featured image URL/, /must be an https:\/\/ URL/);
+    await expectFieldError(page, /^FAQ/, /Each FAQ needs a "Q:" line then an "A:" line/);
+    await expect(page.getByLabel(/^Title/)).toHaveValue("Form test guide");
+    await expect(page.getByLabel(/^Main content/)).toHaveValue("Paragraph one.\n\nParagraph two.");
+    await expect(page.getByLabel("Make", { exact: true })).toHaveValue("Volkswagen");
+    await expect(page.getByLabel("Fuel type")).toHaveValue("diesel");
+    await expect(page.getByLabel("DPF", { exact: true })).toBeChecked();
+    await expect(page.getByLabel(/^FAQ/)).toHaveValue("Q: A question without an answer");
+
+    await page.getByLabel(/^YouTube video URL/).fill("https://youtu.be/abcdefghijk");
+    await page.getByLabel(/^Featured image URL/).fill("");
+    await page.getByLabel(/^FAQ/).fill("Q: A question?\nA: An answer.");
+    await page.getByRole("button", { name: "Publish guide" }).click(); // the clicked intent still reaches the action
+    await expect(page.getByRole("status").filter({ hasText: "Published" })).toBeVisible();
+
+    // Edit: a server-side error must not revert the other edits to the stored values.
+    await page.getByRole("row", { name: /Form test guide/ }).getByRole("link", { name: /Form test guide/ }).click();
+    await serverValidationOnly(page);
+    await page.getByLabel(/^Title/).fill("Form test guide (edited)");
+    await page.getByLabel("Year from").fill("1900");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expectFieldError(page, "Year from", "Must be 1950 or more.");
+    await expect(page.getByLabel(/^Title/)).toHaveValue("Form test guide (edited)");
+    await expect(page.getByLabel("DPF", { exact: true })).toBeChecked();
+    const stored = await db.collection("guides").where("slug", "==", SLUG).get();
+    expect(stored.docs[0]?.data().title).toBe("Form test guide"); // nothing half-saved
+    await removeDocs("guides", "slug", SLUG);
+  });
+
+  test("video: create", async ({ page }) => {
+    await page.goto("/admin/videos/new");
+    await serverValidationOnly(page);
+    await page.getByLabel(/^YouTube URL/).fill("definitely not a video");
+    await page.getByLabel(/^Title/).fill("Form test video");
+    await page.getByLabel(/^Slug/).fill("form-test-video");
+    await page.getByLabel("Description").fill("Description kept after an error.");
+    await page.getByLabel(/^Thumbnail override URL/).fill("http://insecure.example/thumb.jpg");
+    await page.getByLabel(/^Duration from YouTube/).fill("8 minutes");
+    await page.getByRole("button", { name: "Save as draft" }).click();
+
+    await expectSummary(page);
+    await expectFieldError(page, /^YouTube URL/, "Couldn't find a valid YouTube video in that URL.");
+    await expectFieldError(page, /^Thumbnail override URL/, /Thumbnail must be an https:\/\/ URL/);
+    await expectFieldError(page, /^Duration from YouTube/, "This isn't in a valid format.");
+    await expect(page.getByLabel(/^YouTube URL/)).toHaveValue("definitely not a video");
+    await expect(page.getByText("Not a recognised YouTube URL or ID yet.")).toBeVisible(); // preview matches the kept input
+    await expect(page.getByLabel(/^Title/)).toHaveValue("Form test video");
+    await expect(page.getByLabel("Description")).toHaveValue("Description kept after an error.");
+
+    await page.getByLabel(/^YouTube URL/).fill("https://www.youtube.com/watch?v=abcdefghijk");
+    await page.getByLabel(/^Thumbnail override URL/).fill("");
+    await page.getByLabel(/^Duration from YouTube/).fill("PT8M12S");
+    await page.getByRole("button", { name: "Save as draft" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Created as a draft" })).toBeVisible();
+    await removeDocs("videos", "slug", "form-test-video");
+  });
+
+  test("fault code: create", async ({ page }) => {
+    await page.goto("/admin/fault-codes/new");
+    await serverValidationOnly(page);
+    await page.getByLabel(/^Code/).fill("Q1234");
+    await page.getByLabel(/^Title/).fill("Form test fault code");
+    await page.getByLabel(/^Meaning/).fill("Meaning kept after an error.");
+    await page.getByLabel(/^Symptoms/).fill(`Short symptom\n${"x".repeat(201)}`);
+    await page.getByLabel(/^System/).fill("Exhaust / emissions");
+    await page.getByRole("button", { name: "Save as draft" }).click();
+
+    await expectSummary(page);
+    await expectFieldError(page, /^Code/, "This isn't in a valid format.");
+    await expectFieldError(page, /^Symptoms/, "Entry 2: Must be 200 characters or fewer.");
+    await expect(page.getByLabel(/^Meaning/)).toHaveValue("Meaning kept after an error.");
+    await expect(page.getByLabel(/^System/)).toHaveValue("Exhaust / emissions");
+
+    await page.getByLabel(/^Code/).fill("P0299");
+    await page.getByLabel(/^Symptoms/).fill("Short symptom");
+    await page.getByRole("button", { name: "Save as draft" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Created as a draft" })).toBeVisible();
+    await removeDocs("faultCodes", "code", "P0299");
+  });
+
+  test("settings: errors on the exact inputs, then saved values stay in the form", async ({ page }) => {
+    const ref = db.collection("settings").doc("default");
+    const before = await ref.get();
+    try {
+      await page.goto("/admin/settings");
+      await serverValidationOnly(page);
+      await page.getByLabel("Business name").fill("Form test business");
+      await page.getByLabel("Address line 1").fill("1 Test Street");
+      await page.getByLabel("Postcode").fill("");
+      await page.getByLabel("City").fill("");
+      await page.getByLabel("Facebook").fill("http://facebook.com/form-test");
+      await page.getByLabel("Monday opens").fill("09:00");
+      await page.getByRole("button", { name: "Save settings" }).click();
+
+      await expectSummary(page);
+      await expectFieldError(page, "City", "Required when an address is entered.");
+      await expectFieldError(page, "Postcode", "Required when an address is entered.");
+      await expectFieldError(page, "Facebook", "Must be an https:// link.");
+      await expect(page.getByLabel("Business name")).toHaveValue("Form test business");
+      await expect(page.getByLabel("Address line 1")).toHaveValue("1 Test Street");
+      await expect(page.getByLabel("Monday opens")).toHaveValue("09:00");
+
+      await page.getByLabel("City").fill("Testford");
+      await page.getByLabel("Postcode").fill("TE1 1ST");
+      await page.getByLabel("Facebook").fill("https://facebook.com/form-test");
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Settings saved." })).toBeVisible();
+      await expect(page.getByLabel("Business name")).toHaveValue("Form test business"); // not reset to old values
+      await expect(page.getByLabel("City")).not.toHaveAttribute("aria-invalid");
+      expect((await ref.get()).data()?.address).toMatchObject({ line1: "1 Test Street", city: "Testford", postcode: "TE1 1ST" });
+    } finally {
+      if (before.exists) await ref.set(before.data()!);
+      else await ref.delete();
+    }
+  });
+
+  test("gallery upload: missing file and a failed upload keep the details", async ({ page }) => {
+    await page.goto("/admin/gallery");
+    const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Upload" }) });
+    await serverValidationOnly(page);
+    await form.getByLabel("Caption").fill("Caption kept after an error");
+    await form.getByLabel("Order").fill("3");
+    await form.getByRole("button", { name: "Upload" }).click();
+    await expectSummary(page);
+    await expect(form.getByLabel(/^Image/)).toHaveAttribute("aria-invalid", "true");
+    await expect(form.getByLabel(/^Image/)).toHaveAccessibleDescription("Choose an image to upload.");
+    await expect(form.getByLabel("Caption")).toHaveValue("Caption kept after an error");
+    await expect(form.getByLabel("Order")).toHaveValue("3");
+
+    // This suite has no Storage emulator, so a real upload fails server-side: the details must survive that too.
+    await form.getByLabel(/^Image/).setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from("not really a png") });
+    await form.getByRole("button", { name: "Upload" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: /Could not upload|isn't a supported|image/i })).toBeVisible();
+    await expect(form.getByLabel("Caption")).toHaveValue("Caption kept after an error");
+  });
+
+  test("booking note: a failed save keeps the note; a successful save clears it", async ({ page }) => {
+    const ref = db.collection("bookings").doc("form-test-booking");
+    await ref.set({
+      businessId: "default",
+      reference: "FT-0001",
+      status: "new",
+      serviceSnapshot: { name: "Diagnostics", categoryName: "Diagnostics" },
+      customer: { name: "Form Test", phone: "07700900000", email: "form-test@example.com" },
+      vehicle: { make: "Volkswagen", model: "Golf", vrm: "AB12CDE" },
+      symptoms: "Emulator-only booking.",
+      preferred: { date: "2030-01-01", timeWindow: "morning" },
+      photos: [],
+      notes: [],
+      createdAt: Timestamp.now(),
+    });
+    try {
+      await page.goto("/admin/bookings/form-test-booking");
+      await serverValidationOnly(page);
+      const note = page.getByLabel(/^Internal note/);
+      await note.fill("   ");
+      await page.getByRole("button", { name: "Add note" }).click();
+      await expectFieldError(page, /^Internal note/, "Write a note before saving.");
+      await expect(note).toHaveValue("   ");
+
+      await note.fill("Called the customer back.");
+      await page.getByRole("button", { name: "Add note" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Note added." })).toBeVisible();
+      await expect(note).toHaveValue(""); // reset only after the successful save
+      await expect(page.getByText("Called the customer back.")).toBeVisible();
+    } finally {
+      await ref.delete();
+    }
+  });
+
+  test("service (dormant feature): create", async ({ page }) => {
+    await db.collection("serviceCategories").doc("form-test-cat").set({ businessId: "default", name: "Form test category", slug: "form-test-cat", order: 0, status: "published" });
+    try {
+      await page.goto("/admin/services/new");
+      await serverValidationOnly(page);
+      await page.getByLabel("Name").fill("Form test service");
+      await page.getByLabel("Slug").fill("form-test-service");
+      await page.getByLabel("Category").selectOption({ label: "Form test category" });
+      await page.getByLabel(/^Summary/).fill("Summary kept after an error.");
+      await page.getByLabel("Image URL").fill("http://insecure.example/service.jpg");
+      await page.getByLabel("SEO title").fill("x".repeat(71));
+      await page.getByRole("button", { name: "Create service" }).click();
+
+      await expectFieldError(page, "Image URL", /Image must be an https:\/\/ URL/);
+      await expectFieldError(page, "SEO title", "Must be 70 characters or fewer.");
+      await expect(page.getByLabel("Name")).toHaveValue("Form test service");
+      await expect(page.getByLabel("Category")).toHaveValue("form-test-cat");
+      await expect(page.getByLabel(/^Summary/)).toHaveValue("Summary kept after an error.");
+
+      await page.getByLabel("Image URL").fill("");
+      await page.getByLabel("SEO title").fill("");
+      await page.getByRole("button", { name: "Create service" }).click();
+      await expect(page).toHaveURL(/\/admin\/services$/);
+    } finally {
+      await removeDocs("services", "slug", "form-test-service");
+      await db.collection("serviceCategories").doc("form-test-cat").delete();
+    }
+  });
+
+  test("review (dormant feature): create", async ({ page }) => {
+    await page.goto("/admin/reviews/new");
+    await serverValidationOnly(page);
+    await page.getByLabel("Customer name").fill("");
+    await page.getByLabel("Review text").fill("Review text kept after an error.");
+    await page.getByLabel("Date").fill("2026-01-15");
+    await page.getByRole("button", { name: "Add review" }).click();
+    await expectFieldError(page, "Customer name", "This field is required.");
+    await expect(page.getByLabel("Review text")).toHaveValue("Review text kept after an error.");
+    await expect(page.getByLabel("Date")).toHaveValue("2026-01-15");
+
+    await page.getByLabel("Customer name").fill("Form Test");
+    await page.getByRole("button", { name: "Add review" }).click();
+    await expect(page).toHaveURL(/\/admin\/reviews$/);
+    await removeDocs("reviews", "name", "Form Test");
   });
 });
 

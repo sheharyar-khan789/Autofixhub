@@ -10,6 +10,7 @@ import { isNotConfigured } from "@/lib/env";
 import { logServerError } from "@/lib/logger";
 import {
   adminErrorMessage,
+  adminFailure,
   createAdmin,
   deleteAdminDoc,
   setStatusAdmin,
@@ -19,26 +20,32 @@ import {
 } from "@/lib/admin/content";
 import { writeAuditLog } from "@/lib/admin/audit";
 import { extractYoutubeId, youtubeWatchUrl } from "@/lib/admin/youtube";
-import { isSafeImageRef, parseCheckboxes, parseCsvIds, saveNotice, statusFromForm, withNotice } from "@/lib/admin/forms";
+import {
+  isSafeImageRef,
+  parseCheckboxes,
+  parseCsvIds,
+  saveNotice,
+  schemaErrors,
+  statusFromForm,
+  withNotice,
+  type FieldErrors,
+  type FormState,
+} from "@/lib/admin/forms";
 import { PUBLISH_STATUSES, type PublishStatus } from "@/lib/models";
 import type { DeleteActionState } from "../../_components/DeleteButton";
 
-export interface ActionState {
-  error?: string;
-  success?: string;
-}
+export type ActionState = FormState;
 
 function parseForm(formData: FormData) {
   const pastedUrl = String(formData.get("youtubeUrl") ?? "").trim();
   const videoId = extractYoutubeId(pastedUrl);
-  if (!videoId) {
-    return { ok: false as const, error: "Couldn't find a valid YouTube video in that URL." };
-  }
+  const extra: FieldErrors = {};
+  if (!videoId) extra.youtubeUrl = "Couldn't find a valid YouTube video in that URL.";
   const raw = {
     slug: String(formData.get("slug") ?? "").toLowerCase(),
     title: String(formData.get("title") ?? ""),
-    youtubeUrl: youtubeWatchUrl(videoId),
-    youtubeVideoId: videoId,
+    youtubeUrl: videoId ? youtubeWatchUrl(videoId) : "",
+    youtubeVideoId: videoId ?? "",
     thumbnail: String(formData.get("thumbnail") ?? "") || undefined,
     description: String(formData.get("description") ?? "") || undefined,
     vehicleMake: String(formData.get("vehicleMake") ?? "") || undefined,
@@ -53,17 +60,21 @@ function parseForm(formData: FormData) {
     status: statusFromForm(formData),
   };
   if (raw.thumbnail !== undefined && !isSafeImageRef(raw.thumbnail)) {
-    return { ok: false as const, error: "Thumbnail must be an https:// URL or a path on this site starting with /." };
+    extra.thumbnail = "Thumbnail must be an https:// URL or a path on this site starting with /.";
   }
   const parsed = videoInputSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the form for errors." };
+  if (!parsed.success || Object.keys(extra).length) {
+    // The stored YouTube fields are derived from the one "youtubeUrl" input.
+    const field = (path: readonly PropertyKey[]) => (path[0] === "youtubeVideoId" ? "youtubeUrl" : typeof path[0] === "string" ? path[0] : undefined);
+    return { ok: false as const, state: schemaErrors(parsed.success ? [] : parsed.error.issues, extra, field) };
+  }
   return { ok: true as const, data: parsed.data };
 }
 
 export async function saveVideoAction(id: string | null, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireRole(CONTENT_ROLES);
   const parsed = parseForm(formData);
-  if (!parsed.ok) return { error: parsed.error };
+  if (!parsed.ok) return parsed.state;
 
   try {
     if (id) {
@@ -76,7 +87,7 @@ export async function saveVideoAction(id: string | null, _prev: ActionState, for
   } catch (err) {
     if (isNotConfigured(err)) return { error: "Firebase Admin is not configured here." };
     logServerError("admin.video.save", err, { id: id ?? undefined });
-    return { error: adminErrorMessage(err, "Could not save the video. Try again.") };
+    return adminFailure(err, "Could not save the video. Try again.");
   }
   revalidatePath("/admin/videos");
   revalidatePath("/videos");

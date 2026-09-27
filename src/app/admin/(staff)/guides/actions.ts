@@ -10,6 +10,7 @@ import { isNotConfigured } from "@/lib/env";
 import { logServerError } from "@/lib/logger";
 import {
   adminErrorMessage,
+  adminFailure,
   createAdmin,
   deleteAdminDoc,
   guideInputSchema,
@@ -18,26 +19,34 @@ import {
   updateAdmin,
 } from "@/lib/admin/content";
 import { writeAuditLog } from "@/lib/admin/audit";
-import { isSafeImageRef, parseCheckboxes, parseCsvIds, parseFaqs, parseLines, saveNotice, statusFromForm, withNotice } from "@/lib/admin/forms";
+import {
+  isSafeImageRef,
+  parseCheckboxes,
+  parseCsvIds,
+  parseFaqs,
+  parseLines,
+  saveNotice,
+  schemaErrors,
+  statusFromForm,
+  withNotice,
+  type FieldErrors,
+  type FormState,
+} from "@/lib/admin/forms";
 import { extractYoutubeId } from "@/lib/admin/youtube";
 import { PUBLISH_STATUSES, type PublishStatus } from "@/lib/models";
 import type { DeleteActionState } from "../../_components/DeleteButton";
 
-export interface ActionState {
-  error?: string;
-  success?: string;
-}
+export type ActionState = FormState;
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim() || undefined;
 
 function parseForm(formData: FormData) {
   const youtubeInput = text(formData, "youtubeUrl");
   const youtubeVideoId = youtubeInput ? extractYoutubeId(youtubeInput) : undefined;
-  if (youtubeInput && !youtubeVideoId) {
-    return { ok: false as const, error: "Couldn't find a valid YouTube video in that URL." };
-  }
+  const extra: FieldErrors = {};
+  if (youtubeInput && !youtubeVideoId) extra.youtubeUrl = "Couldn't find a valid YouTube video in that URL.";
   const faqs = parseFaqs(formData.get("faqs"));
-  if (faqs.error) return { ok: false as const, error: faqs.error };
+  if (faqs.error) extra.faqs = faqs.error;
 
   const raw = {
     slug: String(formData.get("slug") ?? "").trim().toLowerCase(),
@@ -77,16 +86,17 @@ function parseForm(formData: FormData) {
   for (const [key, label] of [["featuredImage", "Featured image"], ["ogImage", "Social share image"]] as const) {
     const v = raw[key];
     if (v !== undefined && !isSafeImageRef(v)) {
-      return { ok: false as const, error: `${label} must be an https:// URL or a path on this site starting with /.` };
+      extra[key] = `${label} must be an https:// URL or a path on this site starting with /.`;
     }
   }
   if (raw.relatedGuideSlugs?.includes(raw.slug)) {
-    return { ok: false as const, error: "A guide can't list itself as a related guide." };
+    extra.relatedGuideSlugs = "A guide can't list itself as a related guide.";
   }
   const parsed = guideInputSchema.safeParse(raw);
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    return { ok: false as const, error: issue ? `${issue.path.join(".") || "Form"}: ${issue.message}` : "Check the form for errors." };
+  if (!parsed.success || Object.keys(extra).length) {
+    // youtubeVideoId is derived from the "youtubeUrl" input.
+    const field = (path: readonly PropertyKey[]) => (path[0] === "youtubeVideoId" ? "youtubeUrl" : typeof path[0] === "string" ? path[0] : undefined);
+    return { ok: false as const, state: schemaErrors(parsed.success ? [] : parsed.error.issues, extra, field) };
   }
   return { ok: true as const, data: parsed.data };
 }
@@ -94,7 +104,7 @@ function parseForm(formData: FormData) {
 export async function saveGuideAction(id: string | null, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireRole(CONTENT_ROLES);
   const parsed = parseForm(formData);
-  if (!parsed.ok) return { error: parsed.error };
+  if (!parsed.ok) return parsed.state;
 
   let savedId = id;
   try {
@@ -109,7 +119,7 @@ export async function saveGuideAction(id: string | null, _prev: ActionState, for
   } catch (err) {
     if (isNotConfigured(err)) return { error: "Firebase Admin is not configured here." };
     logServerError("admin.guide.save", err, { id: id ?? undefined });
-    return { error: adminErrorMessage(err, "Could not save the guide. Try again.") };
+    return adminFailure(err, "Could not save the guide. Try again.");
   }
   revalidatePath("/admin/guides");
   revalidatePath("/guides");

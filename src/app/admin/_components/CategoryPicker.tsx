@@ -1,11 +1,21 @@
 import Link from "next/link";
 import type { ContentCategory } from "@/lib/models";
+import type { FieldErrors } from "@/lib/admin/forms";
+import { FieldError } from "./ui";
 
 /**
  * Checkbox group writing `categorySlugs`. Draft/archived categories are listed too
  * (marked), so content can be tagged before the category itself is published.
  */
-export function CategoryPicker({ categories, selected }: { categories: ContentCategory[]; selected?: string[] }) {
+export function CategoryPicker({
+  categories,
+  selected,
+  errors,
+}: {
+  categories: ContentCategory[];
+  selected?: string[];
+  errors?: FieldErrors;
+}) {
   if (categories.length === 0) {
     return (
       <p className="text-body-sm text-text-muted">
@@ -36,6 +46,7 @@ export function CategoryPicker({ categories, selected }: { categories: ContentCa
           </div>
         ) : null,
       )}
+      <FieldError errors={errors} name="categorySlugs" />
     </fieldset>
   );
 }

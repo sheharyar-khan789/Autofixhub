@@ -6,6 +6,7 @@ import { BOOKINGS_ROLES } from "@/lib/auth/permissions";
 import { isNotConfigured } from "@/lib/env";
 import { logServerError } from "@/lib/logger";
 import { adminErrorMessage } from "@/lib/admin/content";
+import { invalid, type FormState } from "@/lib/admin/forms";
 import { addBookingNoteAdmin, updateBookingStatusAdmin } from "@/lib/admin/bookings";
 import { BOOKING_STATUSES, type BookingStatus } from "@/lib/models";
 
@@ -13,10 +14,7 @@ function isBookingStatus(v: unknown): v is BookingStatus {
   return typeof v === "string" && (BOOKING_STATUSES as readonly string[]).includes(v);
 }
 
-export interface ActionState {
-  error?: string;
-  success?: string;
-}
+export type ActionState = FormState;
 
 export async function updateBookingStatusAction(
   id: string,
@@ -25,7 +23,7 @@ export async function updateBookingStatusAction(
 ): Promise<ActionState> {
   const session = await requireRole(BOOKINGS_ROLES);
   const status = formData.get("status");
-  if (!isBookingStatus(status)) return { error: "Choose a valid status." };
+  if (!isBookingStatus(status)) return invalid({ status: "Choose a valid status." });
   try {
     await updateBookingStatusAdmin(id, status, session);
   } catch (err) {
@@ -46,7 +44,7 @@ export async function addBookingNoteAction(
 ): Promise<ActionState> {
   const session = await requireRole(BOOKINGS_ROLES);
   const text = String(formData.get("text") ?? "");
-  if (!text.trim()) return { error: "Write a note before saving." };
+  if (!text.trim()) return invalid({ text: "Write a note before saving." });
   try {
     await addBookingNoteAdmin(id, text, session);
   } catch (err) {

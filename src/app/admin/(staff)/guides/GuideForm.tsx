@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
 import { FUEL_TYPES, FUEL_TYPE_LABELS, type ContentCategory, type Guide } from "@/lib/models";
 import { formatFaqs } from "@/lib/admin/forms";
 import { saveGuideAction, type ActionState } from "./actions";
-import { FormMessage, inputClass, labelClass, Req } from "../../_components/ui";
+import { FieldError, fieldProps, FormMessage, inputClass, labelClass, Req } from "../../_components/ui";
+import { useAdminForm } from "../../_components/useAdminForm";
 import { EditorActions } from "../../_components/EditorActions";
 import { CategoryPicker } from "../../_components/CategoryPicker";
 import { CopyUrlButton } from "../../_components/CopyUrlButton";
@@ -26,10 +26,10 @@ export function GuideForm({
   publicUrl?: string;
 }) {
   const action = saveGuideAction.bind(null, guide?.id ?? null);
-  const [state, formAction] = useActionState(action, initialState);
+  const { state, pending, formProps } = useAdminForm(action, initialState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-space-lg">
+    <form {...formProps} className="flex flex-col gap-space-lg">
       {publicUrl && (
         <p className="flex flex-wrap items-center gap-space-sm rounded border border-border-subtle bg-surface-raised p-space-md text-body-sm">
           <span className="text-text-muted">Public URL:</span>
@@ -41,22 +41,26 @@ export function GuideForm({
       <div className="grid gap-space-md sm:grid-cols-2">
         <label className={labelClass}>
           <span>Title<Req /></span>
-          <input name="title" defaultValue={guide?.title} required maxLength={160} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "title")} defaultValue={guide?.title} required maxLength={160} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="title" />
         </label>
         <label className={labelClass}>
           <span>Slug (URL: /guides/slug)<Req /></span>
-          <input name="slug" defaultValue={guide?.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "slug")} defaultValue={guide?.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="slug" />
         </label>
       </div>
 
       <label className={labelClass}>
         <span>Summary (excerpt)<Req /></span>
-        <textarea name="excerpt" defaultValue={guide?.excerpt} required maxLength={300} rows={2} className={inputClass} />
+        <textarea {...fieldProps(state.fieldErrors, "excerpt")} defaultValue={guide?.excerpt} required maxLength={300} rows={2} className={inputClass} />
+        <FieldError errors={state.fieldErrors} name="excerpt" />
       </label>
 
       <label className={labelClass}>
         <span>Main content (blank line between paragraphs)<Req /></span>
-        <textarea name="content" defaultValue={guide?.content} required maxLength={20000} rows={10} className={inputClass} />
+        <textarea {...fieldProps(state.fieldErrors, "content")} defaultValue={guide?.content} required maxLength={20000} rows={10} className={inputClass} />
+        <FieldError errors={state.fieldErrors} name="content" />
       </label>
 
       <fieldset className={fieldset}>
@@ -64,40 +68,48 @@ export function GuideForm({
         <div className="grid gap-space-md sm:grid-cols-3">
           <label className={labelClass}>
             Make
-            <input name="vehicleMake" defaultValue={guide?.vehicleMake} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "vehicleMake")} defaultValue={guide?.vehicleMake} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="vehicleMake" />
           </label>
           <label className={labelClass}>
             Model
-            <input name="vehicleModel" defaultValue={guide?.vehicleModel} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "vehicleModel")} defaultValue={guide?.vehicleModel} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="vehicleModel" />
           </label>
           <label className={labelClass}>
             Generation
-            <input name="vehicleGeneration" defaultValue={guide?.vehicleGeneration} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "vehicleGeneration")} defaultValue={guide?.vehicleGeneration} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="vehicleGeneration" />
           </label>
           <label className={labelClass}>
             Year from
-            <input name="vehicleYearFrom" type="number" defaultValue={guide?.vehicleYearFrom} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "vehicleYearFrom")} type="number" defaultValue={guide?.vehicleYearFrom} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="vehicleYearFrom" />
           </label>
           <label className={labelClass}>
             Year to
-            <input name="vehicleYearTo" type="number" defaultValue={guide?.vehicleYearTo} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "vehicleYearTo")} type="number" defaultValue={guide?.vehicleYearTo} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="vehicleYearTo" />
           </label>
           <label className={labelClass}>
             Engine
-            <input name="engine" defaultValue={guide?.engine} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "engine")} defaultValue={guide?.engine} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="engine" />
           </label>
           <label className={labelClass}>
             Fuel type
-            <select name="fuelType" defaultValue={guide?.fuelType ?? ""} className={inputClass}>
+            <select {...fieldProps(state.fieldErrors, "fuelType")} defaultValue={guide?.fuelType ?? ""} className={inputClass}>
               <option value="">Not specified</option>
               {FUEL_TYPES.map((f) => (
                 <option key={f} value={f}>{FUEL_TYPE_LABELS[f]}</option>
               ))}
             </select>
+            <FieldError errors={state.fieldErrors} name="fuelType" />
           </label>
           <label className={labelClass}>
             System / component
-            <input name="problemCategory" defaultValue={guide?.problemCategory} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "problemCategory")} defaultValue={guide?.problemCategory} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="problemCategory" />
           </label>
         </div>
       </fieldset>
@@ -107,28 +119,34 @@ export function GuideForm({
         <div className="grid gap-space-md sm:grid-cols-3">
           <label className={labelClass}>
             Symptoms (one per line)
-            <textarea name="symptoms" defaultValue={lines(guide?.symptoms)} rows={4} className={inputClass} />
+            <textarea {...fieldProps(state.fieldErrors, "symptoms")} defaultValue={lines(guide?.symptoms)} rows={4} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="symptoms" />
           </label>
           <label className={labelClass}>
             Possible causes (one per line)
-            <textarea name="possibleCauses" defaultValue={lines(guide?.possibleCauses)} rows={4} className={inputClass} />
+            <textarea {...fieldProps(state.fieldErrors, "possibleCauses")} defaultValue={lines(guide?.possibleCauses)} rows={4} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="possibleCauses" />
           </label>
           <label className={labelClass}>
             Recommended checks (one per line)
-            <textarea name="recommendedChecks" defaultValue={lines(guide?.recommendedChecks)} rows={4} className={inputClass} />
+            <textarea {...fieldProps(state.fieldErrors, "recommendedChecks")} defaultValue={lines(guide?.recommendedChecks)} rows={4} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="recommendedChecks" />
           </label>
         </div>
         <label className={labelClass}>
           Diagnosis
-          <textarea name="diagnosis" defaultValue={guide?.diagnosis} maxLength={8000} rows={5} className={inputClass} />
+          <textarea {...fieldProps(state.fieldErrors, "diagnosis")} defaultValue={guide?.diagnosis} maxLength={8000} rows={5} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="diagnosis" />
         </label>
         <label className={labelClass}>
           Repair information (only what you know first-hand)
-          <textarea name="repairInfo" defaultValue={guide?.repairInfo} maxLength={8000} rows={5} className={inputClass} />
+          <textarea {...fieldProps(state.fieldErrors, "repairInfo")} defaultValue={guide?.repairInfo} maxLength={8000} rows={5} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="repairInfo" />
         </label>
         <label className={labelClass}>
           Important notes / warnings (one per line)
-          <textarea name="warnings" defaultValue={lines(guide?.warnings)} rows={3} className={inputClass} />
+          <textarea {...fieldProps(state.fieldErrors, "warnings")} defaultValue={lines(guide?.warnings)} rows={3} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="warnings" />
         </label>
       </fieldset>
 
@@ -137,43 +155,50 @@ export function GuideForm({
         <label className={labelClass}>
           YouTube video URL (embedded on the guide)
           <input
-            name="youtubeUrl"
+            {...fieldProps(state.fieldErrors, "youtubeUrl")}
             type="url"
             defaultValue={guide?.youtubeVideoId ? `https://www.youtube.com/watch?v=${guide.youtubeVideoId}` : ""}
             placeholder="https://www.youtube.com/watch?v=…"
             className={inputClass}
           />
+          <FieldError errors={state.fieldErrors} name="youtubeUrl" />
         </label>
         <div className="grid gap-space-md sm:grid-cols-3">
           <label className={labelClass}>
             Fault codes (comma-separated)
-            <input name="relatedFaultCodes" defaultValue={csv(guide?.relatedFaultCodes)} placeholder="P0401, P2002" className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "relatedFaultCodes")} defaultValue={csv(guide?.relatedFaultCodes)} placeholder="P0401, P2002" className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="relatedFaultCodes" />
           </label>
           <label className={labelClass}>
             Related guide slugs (comma-separated)
-            <input name="relatedGuideSlugs" defaultValue={csv(guide?.relatedGuideSlugs)} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "relatedGuideSlugs")} defaultValue={csv(guide?.relatedGuideSlugs)} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="relatedGuideSlugs" />
           </label>
           <label className={labelClass}>
             Related video IDs (comma-separated)
-            <input name="relatedVideoIds" defaultValue={csv(guide?.relatedVideoIds)} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "relatedVideoIds")} defaultValue={csv(guide?.relatedVideoIds)} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="relatedVideoIds" />
           </label>
         </div>
-        <CategoryPicker categories={categories} selected={guide?.categorySlugs} />
+        <CategoryPicker categories={categories} selected={guide?.categorySlugs} errors={state.fieldErrors} />
       </fieldset>
 
       <label className={labelClass}>
         FAQ (&quot;Q: …&quot; then &quot;A: …&quot;, blank line between questions)
-        <textarea name="faqs" defaultValue={formatFaqs(guide?.faqs)} rows={5} className={inputClass} />
+        <textarea {...fieldProps(state.fieldErrors, "faqs")} defaultValue={formatFaqs(guide?.faqs)} rows={5} className={inputClass} />
+        <FieldError errors={state.fieldErrors} name="faqs" />
       </label>
 
       <div className="grid gap-space-md sm:grid-cols-3">
         <label className={labelClass}>
           Author
-          <input name="author" defaultValue={guide?.author} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "author")} defaultValue={guide?.author} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="author" />
         </label>
         <label className={labelClass}>
           Featured image URL
-          <input name="featuredImage" type="url" defaultValue={guide?.featuredImage} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "featuredImage")} type="url" defaultValue={guide?.featuredImage} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="featuredImage" />
         </label>
       </div>
 
@@ -181,20 +206,24 @@ export function GuideForm({
         <legend className={legend}>SEO</legend>
         <label className={labelClass}>
           SEO title
-          <input name="seoTitle" defaultValue={guide?.seoTitle} maxLength={70} className={inputClass} />
+          <input {...fieldProps(state.fieldErrors, "seoTitle")} defaultValue={guide?.seoTitle} maxLength={70} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="seoTitle" />
         </label>
         <label className={labelClass}>
           Meta description
-          <textarea name="seoDescription" defaultValue={guide?.seoDescription} maxLength={160} rows={2} className={inputClass} />
+          <textarea {...fieldProps(state.fieldErrors, "seoDescription")} defaultValue={guide?.seoDescription} maxLength={160} rows={2} className={inputClass} />
+          <FieldError errors={state.fieldErrors} name="seoDescription" />
         </label>
         <div className="grid gap-space-md sm:grid-cols-2">
           <label className={labelClass}>
             Social share image URL (optional)
-            <input name="ogImage" type="url" defaultValue={guide?.ogImage} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "ogImage")} type="url" defaultValue={guide?.ogImage} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="ogImage" />
           </label>
           <label className={labelClass}>
             Canonical URL (only if first published elsewhere)
-            <input name="canonicalUrl" type="url" defaultValue={guide?.canonicalUrl} className={inputClass} />
+            <input {...fieldProps(state.fieldErrors, "canonicalUrl")} type="url" defaultValue={guide?.canonicalUrl} className={inputClass} />
+            <FieldError errors={state.fieldErrors} name="canonicalUrl" />
           </label>
         </div>
         <label className="inline-flex min-h-11 items-center gap-space-sm text-body-sm text-text-primary">
@@ -213,7 +242,7 @@ export function GuideForm({
       )}
 
       <FormMessage error={state.error} success={state.success} />
-      <EditorActions status={guide?.status} noun="guide" />
+      <EditorActions pending={pending} status={guide?.status} noun="guide" />
     </form>
   );
 }
