@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dataSource, ipHashSalt, siteUrl, isNotConfigured, readAdminCredentials, FirebaseNotConfiguredError, showPlaceholders } from "@/lib/env";
+import { dataSource, googleSiteVerification, ipHashSalt, siteUrl, isNotConfigured, readAdminCredentials, FirebaseNotConfiguredError, showPlaceholders } from "@/lib/env";
+import { metaDescription } from "@/lib/seo";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -44,6 +45,35 @@ describe("env safeguards", () => {
     expect(siteUrl()).toBe("https://workshop.vercel.app");
     vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "");
     expect(siteUrl()).toBe("http://localhost:3000");
+  });
+  it("a Vercel production deployment never publishes a localhost or http site URL", () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "autofixhub.vercel.app");
+    for (const bad of ["http://localhost:3000", "http://127.0.0.1:3000", "http://autofixhub.co.uk", "not a url"]) {
+      vi.stubEnv("NEXT_PUBLIC_SITE_URL", bad);
+      expect(siteUrl(), bad).toBe("https://autofixhub.vercel.app");
+    }
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://autofixhub.co.uk/");
+    expect(siteUrl()).toBe("https://autofixhub.co.uk");
+    // Local builds and preview deployments keep whatever is configured.
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost:3000");
+    expect(siteUrl()).toBe("http://localhost:3000");
+  });
+  it("Search Console verification token: from the value or a pasted meta tag; absent when unset", () => {
+    vi.stubEnv("GOOGLE_SITE_VERIFICATION", "");
+    expect(googleSiteVerification()).toBeUndefined();
+    vi.stubEnv("GOOGLE_SITE_VERIFICATION", " abc123-XYZ ");
+    expect(googleSiteVerification()).toBe("abc123-XYZ");
+    vi.stubEnv("GOOGLE_SITE_VERIFICATION", '<meta name="google-site-verification" content="abc123-XYZ" />');
+    expect(googleSiteVerification()).toBe("abc123-XYZ");
+  });
+  it("meta descriptions: one line, no hashtags, cut at a word near 155 characters", () => {
+    expect(metaDescription("Short text.\r\n#Shorts #P0420")).toBe("Short text.");
+    const long = metaDescription("Getting fault codes P268111 and P268172?\r\n" + "This short highlights a coolant bypass valve circuit fault. ".repeat(5));
+    expect(long.length).toBeLessThanOrEqual(155);
+    expect(long).toMatch(/\w…$/);
+    expect(long).not.toMatch(/[\r\n]/);
   });
   it("placeholders are on unless explicitly disabled", () => {
     vi.stubEnv("SHOW_PLACEHOLDERS", "");

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { getSettingsOrNull } from "@/lib/data";
-import { siteUrl } from "@/lib/env";
+import { googleSiteVerification, siteUrl } from "@/lib/env";
 
 const inter = localFont({
   src: "../fonts/inter-latin-wght-normal.woff2",
@@ -38,6 +38,8 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: { type: "website", locale: "en_GB", siteName: name, title, description },
     twitter: { card: "summary", title, description },
     robots: { index: true, follow: true },
+    // <meta name="google-site-verification"> for Search Console (see GOOGLE_SITE_VERIFICATION).
+    verification: googleSiteVerification() ? { google: googleSiteVerification() } : undefined,
   };
 }
 

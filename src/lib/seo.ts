@@ -160,6 +160,20 @@ export function faultCodeJsonLd(code: FaultCode, baseUrl: string) {
   };
 }
 
+/**
+ * A search-result description from free text (e.g. a pasted YouTube description): one
+ * line, no hashtags, cut at a word boundary to about the length Google shows.
+ */
+export function metaDescription(text: string, max = 155): string {
+  const clean = text
+    .replace(/(^|\s)#[\p{L}\p{N}_]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max - 1);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > max * 0.6 ? cut.lastIndexOf(" ") : cut.length).replace(/[\s,;:.!?–-]+$/, "")}…`;
+}
+
 /** schema.org VideoObject. The video stays hosted on YouTube; this only describes it with real metadata. */
 export function videoObjectJsonLd(video: Video, baseUrl: string) {
   return {

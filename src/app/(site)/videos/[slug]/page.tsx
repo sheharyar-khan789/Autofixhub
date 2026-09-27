@@ -4,12 +4,12 @@ import { Breadcrumbs } from "@/components/content/Breadcrumbs";
 import { videosNotice } from "@/components/content/ContentState";
 import { JsonLd } from "@/components/content/JsonLd";
 import { RelatedContent } from "@/components/content/RelatedContent";
-import { VideoEmbed } from "@/components/content/VideoEmbed";
+import { YouTubeVideoLink } from "@/components/content/YouTubeVideoLink";
 import { LinkButton } from "@/components/ui/Button";
 import { getKnowledgeContent, getSettingsOrNull, getVideo, getVideos } from "@/lib/data";
 import { siteUrl } from "@/lib/env";
 import { youtubeThumbnail } from "@/lib/models";
-import { breadcrumbJsonLd, videoObjectJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, metaDescription, videoObjectJsonLd } from "@/lib/seo";
 
 export const revalidate = 60;
 
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps<"/videos/[slug]">):
   const result = await getVideo(slug);
   if (!result.ok || !result.value) return { title: "Video", robots: { index: false } };
   const v = result.value;
-  const description = v.description || v.title;
+  const description = metaDescription(v.description || v.title);
   const image = v.thumbnail ?? youtubeThumbnail(v.youtubeVideoId);
   return {
     title: v.title,
@@ -99,13 +99,7 @@ export default async function VideoPage({ params }: PageProps<"/videos/[slug]">)
             {meta.length > 0 && <p className="font-code text-label-code text-text-muted">{meta.join(" · ")}</p>}
           </header>
 
-          <VideoEmbed
-            videoId={video.youtubeVideoId}
-            title={video.title}
-            youtubeUrl={video.youtubeUrl}
-            videoType={video.videoType}
-            poster={video.thumbnail}
-          />
+          <YouTubeVideoLink videoId={video.youtubeVideoId} title={video.title} videoType={video.videoType} thumbnail={video.thumbnail} />
 
           {video.description && <p className="whitespace-pre-line text-body-md text-text-primary">{video.description}</p>}
 

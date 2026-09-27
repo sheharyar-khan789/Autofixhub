@@ -406,7 +406,12 @@ test.describe("contact and settings", () => {
     // Never: admin, search, drafts, empty categories, or the dormant workshop routes.
     for (const url of ["/admin", "/search", "fixture-draft-guide", "/categories/turbo<", "/services", "/book"])
       expect(sitemap, url).not.toContain(url);
+    // Same origin everywhere: robots points at this sitemap, every <loc> is absolute on this site.
+    const origin = new URL(robots.match(/Sitemap: (\S+)/)![1]).origin;
+    expect(robots).toContain(`Sitemap: ${origin}/sitemap.xml`);
+    for (const [, loc] of sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)) expect(loc.startsWith(origin), loc).toBe(true);
   });
+
 });
 
 test.describe("mobile action bar and navigation", () => {
@@ -560,6 +565,54 @@ test.describe("AutoFixHub launch content", () => {
   });
 });
 
+test.describe("search goal: fault code -> page -> related video -> YouTube", () => {
+  test("a fault-code page shows its related video in the main content, with a YouTube link and the video page", async ({ page }) => {
+    const problems = watch(page);
+    await page.goto("/fault-codes/p0401");
+    const section = page.getByRole("region", { name: /^Video: Fixture video: DPF diagnosis/ });
+    await expect(section).toBeVisible();
+    // Clicking the video opens it on YouTube (new tab); it's never played on this site.
+    const youtube = section.getByRole("link", { name: "Watch on YouTube: Fixture video: DPF diagnosis (opens YouTube in a new tab)" });
+    await expect(youtube).toHaveAttribute("href", "https://www.youtube.com/watch?v=fixtureVid1");
+    await expect(youtube).toHaveAttribute("target", "_blank");
+    await expect(page.locator("iframe")).toHaveCount(0);
+    // A real click opens YouTube in a new tab (YouTube itself is stubbed so the test stays offline).
+    await page.context().route("https://www.youtube.com/**", (route) => route.fulfill({ contentType: "text/html", body: "<title>YouTube</title>" }));
+    const [tab] = await Promise.all([page.waitForEvent("popup"), youtube.click()]);
+    await tab.waitForURL("https://www.youtube.com/watch?v=fixtureVid1");
+    await tab.close();
+    await expect(page).toHaveURL(/\/fault-codes\/p0401$/);
+    await section.getByRole("link", { name: "Video details and related guides" }).click();
+    await expect(page).toHaveURL(/\/videos\/fixture-dpf-video$/);
+    // The watch page links back to the fault code, so both pages reinforce each other.
+    await expect(page.getByRole("link", { name: /P0401/ }).first()).toBeVisible();
+    expect(problems).toEqual([]);
+  });
+
+  test("video page: absolute canonical, one-line meta description, complete VideoObject", async ({ page }) => {
+    await page.goto("/videos/fixture-dpf-video");
+    const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+    expect(canonical).toMatch(/^https?:\/\/[^/]+\/videos\/fixture-dpf-video$/);
+    const description = (await page.locator('meta[name="description"]').getAttribute("content")) ?? "";
+    expect(description.length).toBeGreaterThan(0);
+    expect(description.length).toBeLessThanOrEqual(160);
+    expect(description).not.toMatch(/[\r\n]|#\w/);
+    const ld = (await page.locator('script[type="application/ld+json"]').allTextContents()).map((t) => JSON.parse(t));
+    const video = ld.find((x) => x["@type"] === "VideoObject");
+    expect(video).toMatchObject({
+      name: "Fixture video: DPF diagnosis",
+      embedUrl: "https://www.youtube-nocookie.com/embed/fixtureVid1",
+      contentUrl: "https://www.youtube.com/watch?v=fixtureVid1",
+      url: canonical,
+    });
+    expect(video.thumbnailUrl[0]).toMatch(/^https?:\/\//);
+    const youtube = page.getByRole("link", { name: /^Watch on YouTube: Fixture video: DPF diagnosis/ });
+    await expect(youtube).toHaveAttribute("href", "https://www.youtube.com/watch?v=fixtureVid1");
+    await expect(youtube).toHaveAttribute("target", "_blank");
+    await expect(page.locator("iframe")).toHaveCount(0);
+  });
+});
+
 test.describe("knowledge platform", () => {
   test("old workshop routes redirect and the booking API is off", async ({ page, request }) => {
     test.skip(WORKSHOP, "only while WORKSHOP_FEATURES_ENABLED is off");
@@ -584,10 +637,11 @@ test.describe("knowledge platform", () => {
       await expect(page.getByRole("heading", { name: h, exact: true })).toBeVisible();
     await expect(page.getByText("Important notes")).toBeVisible();
     await expect(page.getByRole("link", { name: /P0401/ }).first()).toHaveAttribute("href", "/fault-codes/p0401");
-    // Video: click-to-load facade (no autoplay on page load), plus a Watch on YouTube link.
+    // Video: its thumbnail links straight to YouTube (new tab); nothing is played on this site.
     await expect(page.locator("iframe")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Play video/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Watch on YouTube/ })).toHaveAttribute("href", "https://www.youtube.com/watch?v=fixtureVid1");
+    const youtube = page.getByRole("link", { name: /^Watch on YouTube: / });
+    await expect(youtube).toHaveAttribute("href", "https://www.youtube.com/watch?v=fixtureVid1");
+    await expect(youtube).toHaveAttribute("target", "_blank");
     // Related content: the hybrid guide is explicitly linked; the DPF video is linked back to this guide.
     const aside = page.locator("aside");
     await expect(aside.getByRole("link", { name: "Fixture guide: hybrid warning message" })).toBeVisible();
@@ -608,7 +662,11 @@ test.describe("knowledge platform", () => {
     await page.goto("/categories/dpf");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("DPF");
     await expect(page.getByRole("link", { name: /Fixture guide: diesel DPF/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Fixture video: DPF diagnosis/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Fixture video: DPF diagnosis/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Watch on YouTube: Fixture video: DPF diagnosis/ })).toHaveAttribute(
+      "href",
+      "https://www.youtube.com/watch?v=fixtureVid1",
+    );
     expect((await page.goto("/categories/turbo"))?.status(), "draft-only category").toBe(404);
     expect((await page.goto("/categories/no-such-category"))?.status()).toBe(404);
   });

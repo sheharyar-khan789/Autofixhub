@@ -323,6 +323,11 @@ export const videoSchema = z.object({
 });
 export type Video = z.infer<typeof videoSchema>;
 
+/** Where a video opens on YouTube: the Shorts player for Shorts, the normal watch page otherwise. */
+export function youtubeOpenUrl(videoId: string, videoType: VideoType = "standard"): string {
+  return videoType === "short" ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`;
+}
+
 /** Best-effort YouTube thumbnail when the record has none of its own. */
 export function youtubeThumbnail(videoId: string): string {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;

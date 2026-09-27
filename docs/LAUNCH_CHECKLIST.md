@@ -20,7 +20,7 @@ Legend: **[✓] Verified** · **[!] External setup required** · **[ ] Not done*
 
 | Variable | Purpose | Where used | Public / secret | Vercel |
 |---|---|---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | Canonical origin for sitemap, canonical URLs, JSON-LD, same-origin checks | `src/lib/env.ts` → `siteUrl()` | Public | **Required** (e.g. `https://yourdomain.co.uk`, no trailing slash). If missing on Vercel it falls back to the Vercel production domain, never localhost. |
+| `NEXT_PUBLIC_SITE_URL` | Canonical origin for sitemap, canonical URLs, JSON-LD, same-origin checks | `src/lib/env.ts` → `siteUrl()` | Public | **Required** (e.g. `https://yourdomain.co.uk`, no trailing slash). **Never copy `http://localhost:3000` from `.env.local`** (found live on 2026-09-27: robots, sitemap and canonicals pointed at localhost). On a Vercel production deployment a missing, localhost or non-https value now falls back to the Vercel production domain. |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | Browser Firebase config (staff sign-in only) | `src/lib/firebase/client.ts` | Public (identifies the project, not a secret) | Required |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | 〃 | 〃 | Public | Required |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | 〃 | 〃 | Public | Required |
@@ -33,6 +33,7 @@ Legend: **[✓] Verified** · **[!] External setup required** · **[ ] Not done*
 | `IP_HASH_SALT` | Salt for hashed IPs used by booking rate limiting | `env.ts` → `ipHashSalt()` | **Secret** | **Required in production**: the booking API returns 503 without it |
 | `BUSINESS_ID` | Tenant key on every document and staff claim | `env.ts`, scripts | Server | Optional (defaults to `default`); must match what `npm run seed` / `admin:grant` used |
 | `SHOW_PLACEHOLDERS` | Hides all "Placeholder:" blocks when `false` | `env.ts` | Server | **Set to `false` at launch** |
+| `GOOGLE_SITE_VERIFICATION` | Search Console "HTML tag" verification (the `content` value; the whole pasted tag also works) | `src/lib/env.ts` → root `layout.tsx` metadata | Public (it's in the page) | Optional: only if verifying a URL-prefix property by HTML tag; not needed with DNS verification |
 | `DATA_SOURCE` | `memory` = fictional fixtures for dev/tests | `env.ts` | Server | **Do not set** (refused in production anyway) |
 
 No other environment variables are read by the app. `NODE_ENV` and `VERCEL_PROJECT_PRODUCTION_URL` are set by the platform.
@@ -129,7 +130,7 @@ No legal text was written. It needs owner input and appropriate review.
 | Organization | Covered by `AutoRepair` (a LocalBusiness subtype); no separate entity needed | | |
 | Service / Article / TechArticle / VideoObject / BreadcrumbList / FAQPage | ✓ built only from real fields, no ratings/prices invented | Real services/guides/videos | |
 | Favicon | ✗ still the **default Next.js favicon** (`src/app/favicon.ico`) | Logo | |
-| Google Search Console | | | [!] Verify domain, submit sitemap |
+| Google Search Console | ✓ sitemap, robots, canonicals, optional `GOOGLE_SITE_VERIFICATION` meta tag. Videos link out to YouTube (never played on the site), so their views and video results are YouTube's; site pages rank as text pages | | [!] Verify property (DNS for a Domain property, or the HTML tag), submit `/sitemap.xml`, URL-inspect the video and fault-code pages |
 | Google Business Profile | | | [!] Owner's own business only; must match site NAP |
 
 ---

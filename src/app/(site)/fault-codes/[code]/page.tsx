@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/content/Breadcrumbs";
 import { faultCodesNotice } from "@/components/content/ContentState";
 import { JsonLd } from "@/components/content/JsonLd";
 import { RelatedContent } from "@/components/content/RelatedContent";
+import { VideoCard } from "@/components/content/VideoCard";
+import { YouTubeVideoLink } from "@/components/content/YouTubeVideoLink";
 import { StateNotice } from "@/components/ui/Section";
 import { guidesForFaultCode, relatedFaultCodes, videosForFaultCode } from "@/lib/content";
 import { getFaultCode, getFaultCodes, getKnowledgeContent, getSettingsOrNull } from "@/lib/data";
 import { siteUrl } from "@/lib/env";
-import { breadcrumbJsonLd, faultCodeJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, faultCodeJsonLd, metaDescription } from "@/lib/seo";
 
 export const revalidate = 60;
 
@@ -23,7 +26,7 @@ export async function generateMetadata({ params }: PageProps<"/fault-codes/[code
   if (!result.ok || !result.value) return { title: "Fault code", robots: { index: false } };
   const c = result.value;
   const title = c.seoTitle || `${c.code} – ${c.title}`;
-  const description = c.seoDescription || c.meaning.slice(0, 155);
+  const description = c.seoDescription || metaDescription(c.meaning);
   return {
     title,
     description,
@@ -118,6 +121,31 @@ export default async function FaultCodePage({ params }: PageProps<"/fault-codes/
               the cause with testing before replacing parts.
             </p>
           </section>
+
+          {videos.length > 0 && (
+            // The goal of a fault-code page: the answer, and the video on it right there.
+            <section className="flex flex-col gap-space-sm" aria-labelledby="code-video">
+              <h2 id="code-video" className="font-headline text-headline-sm text-text-primary">
+                Video: {videos[0].title}
+              </h2>
+              <YouTubeVideoLink
+                videoId={videos[0].youtubeVideoId}
+                title={videos[0].title}
+                videoType={videos[0].videoType}
+                thumbnail={videos[0].thumbnail}
+              />
+              <Link href={`/videos/${videos[0].slug}`} className="self-start text-body-sm text-text-muted underline hover:text-text-primary">
+                Video details and related guides
+              </Link>
+              {videos.length > 1 && (
+                <ul className="mt-space-sm grid gap-space-md sm:grid-cols-2">
+                  {videos.slice(1).map((v) => (
+                    <VideoCard key={v.id} video={v} />
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <ListSection title="Symptoms" items={faultCode.symptoms} />
           <ListSection title="Possible causes" items={faultCode.possibleCauses} />

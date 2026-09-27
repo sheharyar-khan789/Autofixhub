@@ -6,15 +6,14 @@ import { guidesNotice } from "@/components/content/ContentState";
 import { FaqSection } from "@/components/content/FaqSection";
 import { JsonLd } from "@/components/content/JsonLd";
 import { RelatedContent } from "@/components/content/RelatedContent";
-import { VideoEmbed } from "@/components/content/VideoEmbed";
+import { YouTubeVideoLink } from "@/components/content/YouTubeVideoLink";
 import { StateNotice } from "@/components/ui/Section";
 import { isSafeImageRef } from "@/lib/admin/forms";
 import { relatedGuides, videosForGuide } from "@/lib/content";
 import { getGuide, getGuides, getKnowledgeContent, getSettingsOrNull } from "@/lib/data";
 import { siteUrl } from "@/lib/env";
 import { FUEL_TYPE_LABELS, type Guide } from "@/lib/models";
-import { youtubeWatchUrl } from "@/lib/admin/youtube";
-import { breadcrumbJsonLd, faqJsonLd, guideArticleJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, faqJsonLd, guideArticleJsonLd, metaDescription } from "@/lib/seo";
 
 export const revalidate = 60;
 
@@ -29,7 +28,7 @@ export async function generateMetadata({ params }: PageProps<"/guides/[slug]">):
   if (!guide.ok || !guide.value) return { title: "Guide", robots: { index: false } };
   const g = guide.value;
   const title = g.seoTitle || g.title;
-  const description = g.seoDescription || g.excerpt;
+  const description = g.seoDescription || metaDescription(g.excerpt);
   const image = [g.ogImage, g.featuredImage].find((i) => i && isSafeImageRef(i));
   return {
     title,
@@ -111,12 +110,13 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
   const codes = guide.relatedFaultCodes ?? [];
   const related = relatedGuides(guide, content.guides);
   const videos = videosForGuide(guide, content.videos);
-  // The guide's own YouTube link wins; otherwise embed the first linked video record.
-  const embed = guide.youtubeVideoId
-    ? { id: guide.youtubeVideoId, title: guide.title, url: youtubeWatchUrl(guide.youtubeVideoId) }
-    : videos[0]
-      ? { id: videos[0].youtubeVideoId, title: videos[0].title, url: videos[0].youtubeUrl }
-      : null;
+  // The guide's own YouTube link wins; otherwise the first linked video record. A matching
+  // video record gives the frame shape (Short or not) and any custom thumbnail.
+  const embedId = guide.youtubeVideoId ?? videos[0]?.youtubeVideoId;
+  const embedRecord = embedId ? content.videos.find((v) => v.youtubeVideoId === embedId) : undefined;
+  const embed = embedId
+    ? { id: embedId, title: guide.youtubeVideoId ? guide.title : videos[0].title, type: embedRecord?.videoType, thumbnail: embedRecord?.thumbnail }
+    : null;
 
   const crumbs: Crumb[] = [
     { name: "Home", href: "/" },
@@ -219,7 +219,7 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
           {embed && (
             <section className="flex flex-col gap-space-sm" aria-labelledby="guide-video">
               <h2 id="guide-video" className="font-headline text-headline-sm text-text-primary">Video</h2>
-              <VideoEmbed videoId={embed.id} title={embed.title} youtubeUrl={embed.url} />
+              <YouTubeVideoLink videoId={embed.id} title={embed.title} videoType={embed.type} thumbnail={embed.thumbnail} />
             </section>
           )}
 

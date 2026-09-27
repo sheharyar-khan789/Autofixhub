@@ -25,17 +25,41 @@ export function businessId(): string {
   return process.env.BUSINESS_ID?.trim() || "default";
 }
 
+/** A public https origin (not localhost or a private address) that search engines can reach. */
+function isPublicOrigin(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && !/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Canonical site origin (sitemap, canonical URLs, JSON-LD). NEXT_PUBLIC_SITE_URL
+ * Canonical site origin (sitemap, robots, canonical URLs, JSON-LD). NEXT_PUBLIC_SITE_URL
  * should always be set for production; if it's missing on Vercel, fall back to the
  * project's production domain rather than emitting localhost URLs to search engines.
+ * On a Vercel production deployment a localhost/non-https value (e.g. copied from
+ * .env.local) is ignored for the same reason.
  */
 export function siteUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (raw) return raw.replace(/\/+$/, "");
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+  const vercelProdDeploy = process.env.VERCEL_ENV === "production";
+  if (raw && (!vercelProdDeploy || isPublicOrigin(raw))) return raw;
   const vercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (vercelProd) return `https://${vercelProd.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
   return "http://localhost:3000";
+}
+
+/**
+ * Google Search Console "HTML tag" verification: the `content` value of the meta tag
+ * Search Console shows (not the whole tag). Unset = no tag (e.g. when the Domain property
+ * is verified by DNS instead).
+ */
+export function googleSiteVerification(): string | undefined {
+  const raw = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+  // Accept the whole pasted tag too, and keep only its token.
+  return raw?.match(/content="([^"]+)"/)?.[1] ?? (raw || undefined);
 }
 
 /**

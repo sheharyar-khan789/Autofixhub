@@ -431,7 +431,8 @@ test.describe("content CRUD", () => {
       await page.goto(`/videos/${SLUG}`);
       const player = page.locator('[data-video-frame="short"]');
       expect((await frameOf(player)).ratio, `player at ${width}px`).toBeCloseTo(9 / 16, 2);
-      await expect(player.locator("img")).toHaveAttribute("src", first.thumbnail); // custom poster
+      await expect(player.locator("img")).toHaveAttribute("src", first.thumbnail); // custom thumbnail
+      await expect(player).toHaveAttribute("href", "https://www.youtube.com/shorts/abcdefghijk"); // opens in YouTube's Shorts player
     }
     await page.setViewportSize({ width: 1280, height: 720 });
     expect(await (await request.get(`/videos/${SLUG}`)).text()).toContain(first.thumbnail); // og:image / JSON-LD
@@ -504,7 +505,7 @@ test.describe("content CRUD", () => {
     for (const width of [375, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/videos");
-      const card = page.getByRole("link", { name: /Thumbnail standard/ }).locator("[data-video-frame]");
+      const card = page.getByRole("link", { name: /^Watch on YouTube: Thumbnail standard/ });
       const f = await frameOf(card);
       expect(f.ratio, `card at ${width}px`).toBeCloseTo(16 / 9, 2);
       expect(f.fit).toBe("cover");
@@ -512,7 +513,8 @@ test.describe("content CRUD", () => {
       await page.goto(`/videos/${SLUG}`);
       const player = page.locator('[data-video-frame="standard"]');
       expect((await frameOf(player)).ratio, `player at ${width}px`).toBeCloseTo(16 / 9, 2);
-      await expect(player.locator("img")).toHaveCount(0); // nothing is loaded from YouTube before play
+      await expect(player.locator("img")).toHaveAttribute("src", /i\.ytimg\.com\/vi\/abcdefghijk\/hqdefault\.jpg$/);
+      await expect(player).toHaveAttribute("href", "https://www.youtube.com/watch?v=abcdefghijk");
     }
     await page.setViewportSize({ width: 1280, height: 720 });
     await doc.ref.delete();
